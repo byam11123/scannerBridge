@@ -25,19 +25,27 @@ export async function POST(req: Request) {
       fs.mkdirSync(SCAN_DIR, { recursive: true });
     }
 
-    const filename = `scan_${Date.now()}.${format}`;
-    const outputPath = path.join(SCAN_DIR, filename);
+    const baseFilename = `scan_${Date.now()}`;
+    const outputPath = path.join(SCAN_DIR, `${baseFilename}_$(nnnn).${format}`);
 
-    // NAPS2 Arguments
+    // NAPS2 Arguments - Optimized for compatibility
     const args = [
       `-o "${outputPath}"`,
       `--noprofile`,
       `--driver ${driver}`,
       `--device "${deviceName.replace(/"/g, '')}"`,
-      `--dpi ${parseInt(dpi)}`,
-      `--bitdepth ${colorMode === 'Color' ? 24 : (colorMode === 'Gray' ? 8 : 1)}`,
-      `--pagesize ${pageSize}`
+      `--dpi ${parseInt(dpi)}`
     ];
+
+    // Only add bitdepth if not using WIA or if specifically requested (WIA 1.0 can be picky)
+    if (driver !== 'wia' || colorMode !== 'Color') {
+      args.push(`--bitdepth ${colorMode === 'Color' ? 24 : (colorMode === 'Gray' ? 8 : 1)}`);
+    }
+
+    // Only add pagesize if not using WIA (some WIA drivers fail with explicit pagesize)
+    if (driver !== 'wia') {
+      args.push(`--pagesize ${pageSize}`);
+    }
 
     // Paper source mapping
     if (paperSource.toLowerCase() === 'feeder') args.push('--source feeder');
@@ -47,23 +55,24 @@ export async function POST(req: Request) {
     const command = `"${NAPS2_PATH}" ${args.join(' ')}`;
     console.log('[scan command]', command);
 
+    let scanResult: any = { stdout: '', stderr: '' };
     try {
-      const { stdout, stderr } = await execAsync(command, { timeout: 120000 });
-      if (stdout.trim()) console.log('[stdout]', stdout.trim());
-      if (stderr.trim()) console.error('[stderr]', stderr.trim());
+      scanResult = await execAsync(command, { timeout: 180000 }); // Increase timeout to 3 mins
+      if (scanResult.stdout.trim()) console.log('[stdout]', scanResult.stdout.trim());
+      if (scanResult.stderr.trim()) console.error('[stderr]', scanResult.stderr.trim());
     } catch (err: any) {
-      // Even if it "errors", NAPS2 might have succeeded (e.g. multi-page output naming)
       console.error('[scan error]', err.message);
+      scanResult.stderr = err.message;
+      // Continue to check if files were generated despite the non-zero exit code
     }
 
     const files = fs.readdirSync(SCAN_DIR);
-    const base = filename.split(`.${format}`)[0];
     const matchedFiles = files
-      .filter(f => f.startsWith(base) && f.endsWith(`.${format}`))
+      .filter(f => f.startsWith(baseFilename) && f.endsWith(`.${format}`))
       .sort(); // Ensure pages are in order
 
     if (matchedFiles.length === 0) {
-      const msg = (stderr || stdout || err?.message || 'Scan failed to produce a file. Check if the scanner is connected and has paper.').trim();
+      const msg = (scanResult.stderr || scanResult.stdout || 'Scan failed to produce a file. Check if the scanner is connected, has paper in the feeder, and supports the selected resolution.').trim();
       return NextResponse.json({ error: msg }, { status: 500 });
     }
 
@@ -72,7 +81,7 @@ export async function POST(req: Request) {
       try {
         const currentFiles = fs.readdirSync(SCAN_DIR);
         currentFiles.forEach(f => {
-          if (f.startsWith(base)) {
+          if (f.startsWith(baseFilename)) {
             try { fs.unlinkSync(path.join(SCAN_DIR, f)); } catch {}
           }
         });
