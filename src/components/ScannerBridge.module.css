@@ -1,0 +1,588 @@
+.container {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px;
+  gap: 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.panel {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.panelHeader {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding: 0 4px 10px;
+}
+
+.profileRow {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profileLabel {
+  font-size: 11px;
+  color: var(--text3);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  min-width: 44px;
+}
+
+.profileName {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profileIcons {
+  display: flex;
+  gap: 4px;
+}
+
+.iconBtn {
+  width: 26px;
+  height: 26px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text2);
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.iconBtn:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+.section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.sectionTitle {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding: 8px 12px 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.deviceList {
+  display: flex;
+  flex-direction: column;
+}
+
+.deviceCard {
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-bottom: 1px solid var(--border);
+  border-left: 2px solid transparent;
+}
+
+.deviceCard:last-child {
+  border-bottom: none;
+}
+
+.deviceCard:hover {
+  background: var(--surface2);
+}
+
+.deviceCardSelected {
+  background: rgba(224, 90, 43, 0.1);
+  border-left-color: var(--accent);
+}
+
+.deviceIcon {
+  width: 34px;
+  height: 34px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 17px;
+}
+
+.deviceCardSelected .deviceIcon {
+  background: rgba(224, 90, 43, 0.15);
+  border-color: rgba(224, 90, 43, 0.4);
+}
+
+.deviceInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.deviceName {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deviceSub {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 1px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.driverBadge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text3);
+}
+
+.deviceCardSelected .driverBadge {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.field {
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.field:last-child {
+  border-bottom: none;
+}
+
+.fieldLabel {
+  font-size: 11px;
+  color: var(--text3);
+  font-weight: 500;
+  padding-top: 9px;
+  letter-spacing: 0.03em;
+}
+
+.field select {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 4px 20px 9px 0;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235c6370' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 2px center;
+}
+
+.scanBtn {
+  width: 100%;
+  padding: 13px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 0.15s, transform 0.1s;
+  margin-top: 4px;
+}
+
+.scanBtn:hover:not(:disabled) {
+  background: var(--accent2);
+}
+
+.scanBtn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.scanBtn:disabled {
+  background: var(--surface2);
+  color: var(--text3);
+  cursor: not-allowed;
+  border: 1px solid var(--border);
+}
+
+.refreshBtn {
+  width: 100%;
+  padding: 9px;
+  background: transparent;
+  color: var(--text2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.refreshBtn:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+.spinning span {
+  display: inline-block;
+  animation: spin 0.8s linear infinite;
+}
+
+.statusbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text3);
+  font-family: 'DM Mono', monospace;
+  padding: 0 2px;
+}
+
+.sdot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sdotGreen { background: var(--green); }
+.sdotRed { background: var(--red); }
+.sdotPulse {
+  background: var(--yellow);
+  animation: blink 1s ease infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+.previewArea {
+  flex: 1;
+  min-width: 0;
+  max-width: 680px;
+}
+
+.previewHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 0 2px;
+}
+
+.previewTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text3);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.previewActions {
+  display: flex;
+  gap: 8px;
+}
+
+.actionBtn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text2);
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.actionBtn:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+.actionBtnDl {
+  background: rgba(61, 186, 114, 0.12);
+  border-color: rgba(61, 186, 114, 0.4);
+  color: var(--green);
+}
+
+.actionBtnDl:hover {
+  background: rgba(61, 186, 114, 0.22);
+}
+
+.previewBox {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  position: relative;
+  padding: 24px;
+}
+
+.gridContainer {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+  align-content: start;
+}
+
+.pageCard {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s;
+  position: relative;
+}
+
+.pageCard:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.pageNumber {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  color: white;
+  font-size: 10px;
+  font-family: 'DM Mono', monospace;
+  padding: 2px 6px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.pageImg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.zoomControls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+.zoomValue {
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  color: var(--text2);
+  min-width: 60px;
+  text-align: center;
+}
+
+.zoomBtn {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.zoomBtn:hover {
+  background: var(--surface2);
+}
+
+.zoomBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.resultContainer {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.resultImg {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-lg);
+}
+
+.pdfPlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--text2);
+}
+
+.pdfIcon {
+  font-size: 48px;
+  color: var(--red);
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--text3);
+}
+
+.emptyIcon {
+  width: 60px;
+  height: 60px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+}
+
+.emptyTitle {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text2);
+}
+
+.emptySub {
+  font-size: 12px;
+}
+
+.scanningOverlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.scanAnim {
+  width: 100px;
+  height: 140px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 5px;
+  position: relative;
+  overflow: hidden;
+}
+
+.scanLine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  box-shadow: 0 0 10px var(--accent);
+  animation: scanline 1.6s ease-in-out infinite;
+}
+
+.scanLinesBg {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 8px,
+    rgba(255, 255, 255, 0.02) 8px,
+    rgba(255, 255, 255, 0.02) 9px
+  );
+}
+
+.scanningLabel {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text2);
+}
+
+.scanningDevice {
+  font-size: 11px;
+  color: var(--text3);
+}
+
+.noDevices {
+  padding: 20px;
+  text-align: center;
+  color: var(--text3);
+  font-size: 12px;
+  line-height: 1.6;
+}
