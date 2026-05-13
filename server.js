@@ -10,6 +10,8 @@ const app = express();
 const PORT = 3001;
 const SCAN_DIR = 'C:\\scans';
 
+const NAPS2_PATH = 'C:\\Program Files\\NAPS2\\NAPS2.Console.exe';
+
 app.use(cors());
 app.use(express.json());
 
@@ -18,112 +20,146 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 if (!fs.existsSync(SCAN_DIR)) fs.mkdirSync(SCAN_DIR, { recursive: true });
 
-// Helper: write a temp .ps1 file and run it in STA mode, then delete it
-function runPS(scriptContent, callback) {
-  const tmpFile = path.join(os.tmpdir(), `scanner_${Date.now()}.ps1`);
-  fs.writeFileSync(tmpFile, scriptContent, 'utf8');
-  exec(
-    `powershell -Sta -ExecutionPolicy Bypass -File "${tmpFile}"`,
-    { timeout: 90000 },
-    (err, stdout, stderr) => {
-      try { fs.unlinkSync(tmpFile); } catch {}
-      callback(err, stdout, stderr);
-    }
-  );
-}
-
 // ── GET /api/scanners ─────────────────────────────────────────────────────────
-app.get('/api/scanners', (req, res) => {
-  const script = `
-$ErrorActionPreference = 'Stop'
-try {
-  $dm = New-Object -ComObject WIA.DeviceManager
-  $list = @()
-  for ($i = 1; $i -le $dm.DeviceInfos.Count; $i++) {
-    $d = $dm.DeviceInfos.Item($i)
-    $list += $d.Properties("Name").Value
-  }
-  Write-Output ($list -join "||")
-} catch {
-  Write-Output "ERROR:$($_.Exception.Message)"
-}
-`;
-  runPS(script, (err, stdout) => {
-    const raw = stdout.trim();
-    if (err || raw.startsWith('ERROR:')) {
-      console.error('[scanners error]', raw || err?.message);
-      return res.json({ scanners: [] });
+app.get('/api/scanners', async (req, res) => {
+  const drivers = ['wia', 'twain', 'escl'];
+  let allScanners = [];
+
+  for (const driver of drivers) {
+    try {
+      const output = await new Promise((resolve, reject) => {
+        exec(`"${NAPS2_PATH}" --listdevices --driver ${driver}`, (err, stdout) => {
+          if (err && !stdout) return reject(err);
+          resolve(stdout.trim());
+        });
+      });
+      
+      if (output) {
+        const names = output.split('\n').map(n => n.trim()).filter(n => n);
+        names.forEach(name => {
+          allScanners.push({ name, driver });
+        });
+      }
+    } catch (err) {
+      console.error(`[discovery error] ${driver}:`, err.message);
     }
-    const scanners = raw ? raw.split('||').filter(s => s.trim()) : [];
-    console.log('[scanners found]', scanners);
-    res.json({ scanners });
-  });
+  }
+
+  console.log('[scanners found]', allScanners);
+  res.json({ scanners: allScanners });
 });
 
 // ── GET /api/status ───────────────────────────────────────────────────────────
 app.get('/api/status', (req, res) => {
-  const script = `
-try {
-  $dm = New-Object -ComObject WIA.DeviceManager
-  Write-Output $dm.DeviceInfos.Count
-} catch {
-  Write-Output 0
-}
-`;
-  runPS(script, (err, stdout) => {
-    const count = parseInt(stdout.trim()) || 0;
-    res.json({ status: count > 0 ? 'online' : 'no_device', deviceCount: count });
-  });
+  // Simplistic status: check if NAPS2 is accessible
+  if (fs.existsSync(NAPS2_PATH)) {
+    res.json({ status: 'online', engine: 'NAPS2' });
+  } else {
+    res.json({ status: 'error', message: 'NAPS2 not found' });
+  }
 });
 
 // ── POST /api/scan ────────────────────────────────────────────────────────────
 app.post('/api/scan', (req, res) => {
   const {
     deviceName = '',
+    driver = 'wia',
     dpi = 300,
     colorMode = 'Gray',
     paperSource = 'Feeder',
-    pageSize = 'A4'
+    pageSize = 'A4',
+    format = 'jpg'
   } = req.body;
 
-  const filename = `scan_${Date.now()}.jpg`;
+  const filename = `scan_${Date.now()}.${format}`;
   const outputPath = path.join(SCAN_DIR, filename);
-  const scriptPath = path.join(__dirname, 'scan.ps1');
 
-  const command = [
-    `powershell -Sta -ExecutionPolicy Bypass`,
-    `-File "${scriptPath}"`,
-    `-DPI ${parseInt(dpi)}`,
-    `-ColorMode ${colorMode}`,
-    `-PaperSource ${paperSource}`,
-    `-PageSize ${pageSize}`,
-    `-DeviceName "${deviceName.replace(/"/g, '')}"`,
-    `-OutputPath "${outputPath}"`
-  ].join(' ');
+  // NAPS2 Arguments
+  const args = [
+    `-o "${outputPath}"`,
+    `--noprofile`,
+    `--driver ${driver}`,
+    `--device "${deviceName.replace(/"/g, '')}"`,
+    `--dpi ${parseInt(dpi)}`,
+    `--bitdepth ${colorMode === 'Color' ? 24 : (colorMode === 'Gray' ? 8 : 1)}`,
+  ];
 
-  console.log('[scan]', command);
+  // Paper source mapping
+  if (paperSource.toLowerCase() === 'feeder') args.push('--source feeder');
+  else if (paperSource.toLowerCase() === 'flatbed') args.push('--source glass');
+  else if (paperSource.toLowerCase() === 'duplex') args.push('--source duplex');
 
-  exec(command, { timeout: 90000 }, (err, stdout, stderr) => {
-    console.log('[stdout]', stdout.trim());
-    if (stderr.trim()) console.log('[stderr]', stderr.trim());
+  // Page size (NAPS2 handles standard names well)
+  args.push(`--pagesize ${pageSize}`);
 
-    if (!fs.existsSync(outputPath)) {
-      const msg = (stderr || stdout || err?.message || 'Scan produced no file').trim();
+  const command = `"${NAPS2_PATH}" ${args.join(' ')}`;
+  console.log('[scan command]', command);
+
+  exec(command, { timeout: 120000 }, (err, stdout, stderr) => {
+    if (stdout.trim()) console.log('[stdout]', stdout.trim());
+    if (stderr.trim()) console.error('[stderr]', stderr.trim());
+
+    let actualPath = outputPath;
+    let actualFilename = filename;
+
+    // If duplex/multi-page JPG was scanned, NAPS2 might name it filename.1.jpg
+    if (!fs.existsSync(actualPath)) {
+      const parts = outputPath.split('.');
+      const ext = parts.pop();
+      const numberedPath = `${parts.join('.')}.1.${ext}`;
+      
+      if (fs.existsSync(numberedPath)) {
+        actualPath = numberedPath;
+        actualFilename = `${filename.split(`.${ext}`)[0]}.1.${ext}`;
+      }
+    }
+
+    if (!fs.existsSync(actualPath)) {
+      const msg = (stderr || stdout || err?.message || 'Scan failed').trim();
       return res.status(500).json({ error: msg });
     }
 
-    const fileData = fs.readFileSync(outputPath);
-    res.set('Content-Type', 'image/jpeg');
-    res.set('Content-Disposition', `attachment; filename="${filename}"`);
+    const fileData = fs.readFileSync(actualPath);
+    const contentType = format === 'pdf' ? 'application/pdf' : 'image/jpeg';
+    
+    res.set('Content-Type', contentType);
+    res.set('Content-Disposition', `attachment; filename="${actualFilename}"`);
     res.send(fileData);
 
+    // Cleanup all related files after 30 seconds
     setTimeout(() => {
-      try { if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath); } catch {}
-    }, 10000);
+      try {
+        if (fs.existsSync(actualPath)) fs.unlinkSync(actualPath);
+        // Also try to clean up the original path if it's different
+        if (actualPath !== outputPath && fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+        // Cleanup potential other pages if it was a multi-page scan
+        const base = outputPath.split(`.${format}`)[0];
+        for (let i = 2; i <= 10; i++) {
+          const p = `${base}.${i}.${format}`;
+          if (fs.existsSync(p)) fs.unlinkSync(p);
+        }
+      } catch {}
+    }, 30000);
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`\n✅  Scanner Bridge running`);
+const server = app.listen(PORT, () => {
+  console.log(`\n✅  Scanner Bridge (NAPS2) running`);
   console.log(`    Open → http://localhost:${PORT}\n`);
 });
+
+server.on('error', (err) => {
+  console.error('❌ SERVER ERROR:', err);
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use. Please close the other process or use a different port.`);
+  }
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('❌ UNCAUGHT EXCEPTION:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('❌ UNHANDLED REJECTION:', reason);
+});
+

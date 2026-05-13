@@ -158,24 +158,24 @@
       font-size: 11px;
       color: var(--text3);
       margin-top: 1px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
-    .device-dot {
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      background: var(--green);
-      flex-shrink: 0;
-    }
-    .no-devices {
-      padding: 20px 12px;
-      text-align: center;
+    .driver-badge {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
       color: var(--text3);
-      font-size: 12px;
-      line-height: 1.6;
     }
-    .no-devices a {
-      color: var(--accent2);
-      text-decoration: none;
-      font-weight: 500;
+    .device-card.selected .driver-badge {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
     }
 
     /* Field rows */
@@ -211,6 +211,10 @@
     .field select option {
       background: #2a2e36;
       color: var(--text);
+    }
+    .field select option:checked {
+      background: var(--accent);
+      color: white;
     }
 
     /* Scan button */
@@ -349,6 +353,31 @@
       position: relative;
     }
 
+    /* Result Preview */
+    .result-container {
+      width: 100%;
+      height: 100%;
+      display: none;
+      position: relative;
+    }
+    .result-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: var(--radius-lg);
+    }
+    .pdf-placeholder {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      color: var(--text2);
+    }
+    .pdf-icon {
+      font-size: 48px;
+      color: var(--red);
+    }
+
     /* Empty state */
     .empty-state {
       display: flex;
@@ -411,14 +440,6 @@
     }
     .scanning-device { font-size: 11px; color: var(--text3); }
 
-    /* Result */
-    .result-img {
-      width: 100%;
-      height: auto;
-      display: none;
-      border-radius: var(--radius-lg);
-    }
-
     /* Error toast */
     .toast {
       position: fixed;
@@ -449,7 +470,7 @@
 
 <!-- ── LEFT PANEL ── -->
 <div class="panel">
-  <div class="panel-header">Scanner</div>
+  <div class="panel-header">Scanner Bridge</div>
 
   <div class="profile-row">
     <span class="profile-label">Profile:</span>
@@ -500,12 +521,18 @@
     </div>
 
     <div class="field">
-      <div class="field-label">Bit depth:</div>
-      <select id="colorMode">
-        <option value="Color">24-bit Color</option>
-        <option value="Gray" selected>8-bit Grayscale</option>
-        <option value="BlackWhite">1-bit Black &amp; White</option>
-      </select>
+      <div class="field-label">Format &amp; Color:</div>
+      <div style="display:flex; gap:8px;">
+        <select id="colorMode" style="flex: 2;">
+          <option value="Color">Color</option>
+          <option value="Gray" selected>Gray</option>
+          <option value="BlackWhite">B&amp;W</option>
+        </select>
+        <select id="fileFormat" style="flex: 1;">
+          <option value="jpg" selected>JPG</option>
+          <option value="pdf">PDF</option>
+        </select>
+      </div>
     </div>
   </div>
 
@@ -549,7 +576,14 @@
       <div class="scanning-device" id="scanningDevice"></div>
     </div>
 
-    <img class="result-img" id="resultImg" src="" alt="Scanned document" />
+    <div class="result-container" id="resultContainer">
+      <img class="result-img" id="resultImg" src="" alt="Scanned document" />
+      <div class="pdf-placeholder" id="pdfPlaceholder">
+        <div class="pdf-icon">📄</div>
+        <div class="empty-title">PDF Document Ready</div>
+        <div class="empty-sub" id="pdfFileName"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -560,13 +594,11 @@
 </div>
 
 <script>
-  // Use relative URLs — works when served by node server.js at localhost:3001
   const API = '';
   let selectedDevice = null;
   let scannedBlob = null;
   let toastTimer = null;
 
-  // ── Load devices ─────────────────────────────────────────────────────────
   async function loadDevices() {
     const list = document.getElementById('deviceList');
     const btn  = document.getElementById('refreshBtn');
@@ -584,62 +616,61 @@
       if (!scanners || !scanners.length) {
         list.innerHTML = `<div class="no-devices">
           No scanners found.<br>
-          Add via <strong>Settings → Printers &amp; Scanners</strong>
+          Ensure NAPS2 is installed and scanner is connected.
         </div>`;
         setStatus('red', 'No devices found');
         return;
       }
 
-      scanners.forEach((name, idx) => {
+      scanners.forEach((dev, idx) => {
         const card = document.createElement('div');
         card.className = 'device-card';
-        card.dataset.name = name;
-        card.onclick = () => selectDevice(name, card);
+        card.onclick = () => selectDevice(dev, card);
         card.innerHTML = `
           <div class="device-icon">🖨</div>
           <div class="device-info">
-            <div class="device-name" title="${name}">${name}</div>
-            <div class="device-sub">WIA Driver</div>
+            <div class="device-name" title="${dev.name}">${dev.name}</div>
+            <div class="device-sub">
+              <span class="driver-badge">${dev.driver}</span>
+              NAPS2 Engine
+            </div>
           </div>
           <div class="device-dot"></div>
         `;
         list.appendChild(card);
-        if (idx === 0) selectDevice(name, card); // auto-select first
+        if (idx === 0) selectDevice(dev, card);
       });
 
-      setStatus('green', `${scanners.length} device${scanners.length > 1 ? 's' : ''} ready`);
+      setStatus('green', `${scanners.length} device${scanners.length > 1 ? 's' : ''} found`);
 
     } catch (err) {
-      list.innerHTML = `<div class="no-devices">
-        Bridge not running.<br>
-        Run: <strong>node server.js</strong>
-      </div>`;
-      setStatus('red', 'Server offline — port 3001');
+      list.innerHTML = `<div class="no-devices">Bridge not running.</div>`;
+      setStatus('red', 'Server offline');
     } finally {
       btn.classList.remove('spinning');
     }
   }
 
-  // ── Select device ─────────────────────────────────────────────────────────
-  function selectDevice(name, card) {
+  function selectDevice(dev, card) {
     document.querySelectorAll('.device-card').forEach(c => c.classList.remove('selected'));
     card.classList.add('selected');
-    selectedDevice = name;
-    document.getElementById('profileName').textContent = name;
+    selectedDevice = dev;
+    document.getElementById('profileName').textContent = dev.name;
     const btn = document.getElementById('scanBtn');
     btn.disabled = false;
     document.getElementById('scanBtnText').textContent = 'Scan Document';
   }
 
-  // ── Start scan ────────────────────────────────────────────────────────────
   async function startScan() {
     if (!selectedDevice) return;
 
     const btn = document.getElementById('scanBtn');
+    const format = document.getElementById('fileFormat').value;
+    
     btn.disabled = true;
     document.getElementById('scanBtnText').textContent = 'Scanning…';
     document.getElementById('previewActions').style.display = 'none';
-    document.getElementById('scanningDevice').textContent = selectedDevice;
+    document.getElementById('scanningDevice').textContent = selectedDevice.name;
     showState('scanning');
 
     try {
@@ -647,11 +678,13 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          deviceName:  selectedDevice,
+          deviceName:  selectedDevice.name,
+          driver:      selectedDevice.driver,
           dpi:         parseInt(document.getElementById('dpi').value),
           colorMode:   document.getElementById('colorMode').value,
           paperSource: document.getElementById('paperSource').value,
           pageSize:    document.getElementById('pageSize').value,
+          format:      format
         })
       });
 
@@ -661,8 +694,21 @@
       }
 
       scannedBlob = await res.blob();
+      const url = URL.createObjectURL(scannedBlob);
+      
       const img = document.getElementById('resultImg');
-      img.src = URL.createObjectURL(scannedBlob);
+      const pdf = document.getElementById('pdfPlaceholder');
+      
+      if (format === 'pdf') {
+        img.style.display = 'none';
+        pdf.style.display = 'flex';
+        document.getElementById('pdfFileName').textContent = `scan_${Date.now()}.pdf`;
+      } else {
+        img.style.display = 'block';
+        pdf.style.display = 'none';
+        img.src = url;
+      }
+      
       showState('result');
       document.getElementById('previewActions').style.display = 'flex';
 
@@ -675,29 +721,25 @@
     }
   }
 
-  // ── Download ──────────────────────────────────────────────────────────────
   function downloadScan() {
     if (!scannedBlob) return;
+    const format = document.getElementById('fileFormat').value;
     const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(scannedBlob);
-    a.download = `scan_${ts}.jpg`;
+    a.download = `scan_${ts}.${format}`;
     a.click();
   }
 
   function clearScan() {
     scannedBlob = null;
-    document.getElementById('resultImg').src = '';
-    document.getElementById('resultImg').style.display = 'none';
-    document.getElementById('previewActions').style.display = 'none';
     showState('empty');
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
   function showState(s) {
     document.getElementById('emptyState').style.display      = s === 'empty'    ? 'flex'  : 'none';
     document.getElementById('scanningOverlay').style.display = s === 'scanning' ? 'flex'  : 'none';
-    document.getElementById('resultImg').style.display       = s === 'result'   ? 'block' : 'none';
+    document.getElementById('resultContainer').style.display = s === 'result'   ? 'block' : 'none';
   }
 
   function setStatus(type, text) {
