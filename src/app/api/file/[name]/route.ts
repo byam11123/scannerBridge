@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
@@ -15,14 +14,21 @@ export async function GET(
     return new Response('File not found', { status: 404 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const download = searchParams.get('download') === 'true';
+
   const fileBuffer = fs.readFileSync(filePath);
   const ext = path.extname(name).toLowerCase();
   const contentType = ext === '.pdf' ? 'application/pdf' : 'image/jpeg';
 
-  return new Response(fileBuffer, {
-    headers: {
-      'Content-Type': contentType,
-      'Cache-Control': 'public, max-age=60',
-    },
-  });
+  const headers: Record<string, string> = {
+    'Content-Type': contentType,
+    'Cache-Control': 'public, max-age=60',
+  };
+
+  if (download) {
+    headers['Content-Disposition'] = `attachment; filename="${name}"`;
+  }
+
+  return new Response(fileBuffer, { headers });
 }

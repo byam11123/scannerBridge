@@ -509,6 +509,7 @@
   width: 100%;
   height: auto;
   display: block;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .pageOverlay {
@@ -890,4 +891,98 @@
 .alertIcon {
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+/* ── ENHANCEMENTS ── */
+
+.refreshHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.refreshBtn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  transition: all 0.2s;
+}
+
+.refreshBtn:hover:not(:disabled) {
+  background: var(--card-border);
+  color: var(--foreground);
+}
+
+.refreshBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.progressBarMini {
+  height: 2px;
+  background: var(--card-border);
+  border-radius: 1px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.progressBarMiniInner {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.1s linear;
+}
+
+.viewToggle {
+  display: flex;
+  background: #18181b;
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+
+.viewToggleBtn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.viewToggleBtnActive {
+  background: var(--card-border);
+  color: var(--foreground);
+}
+
+.rotationIcon {
+  color: var(--muted);
+  transition: color 0.2s;
+}
+
+.toolBtn:hover .rotationIcon {
+  color: var(--foreground);
+}
+
+.footer {
+  padding: 12px 32px;
+  border-top: 1px solid var(--border);
+  background: rgba(12, 12, 14, 0.5);
+  display: flex;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }

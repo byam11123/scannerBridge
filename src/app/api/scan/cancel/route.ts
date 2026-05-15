@@ -9,7 +9,7 @@ export async function POST() {
     // Kill NAPS2.Console.exe to stop hardware scan immediately
     await execAsync('taskkill /F /IM NAPS2.Console.exe');
     return NextResponse.json({ success: true, message: 'Scan cancelled' });
-  } catch (err: any) {
+  } catch {
     // If process not found, it's still a success (already stopped)
     return NextResponse.json({ success: true, message: 'Scan not running' });
   }

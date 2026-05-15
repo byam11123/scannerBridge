@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { 
   Scan, 
   FileUp, 
   Search, 
   Box, 
-  Download, 
   Mail, 
   Trash2, 
   ChevronLeft, 
@@ -20,11 +20,12 @@ import {
   AlertCircle,
   ChevronDown,
   FileImage,
-  Check,
   ChevronRightSquare,
-  MoreVertical,
   ZoomIn,
   ZoomOut,
+  RotateCw,
+  LayoutGrid,
+  List,
   StopCircle,
   AlertTriangle,
   Info
@@ -90,10 +91,12 @@ export default function ScannerBridge() {
   const [refreshing, setRefreshing] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [status, setStatus] = useState({ type: 'pulse', text: 'Connecting...' });
+  const [refreshProgress, setRefreshProgress] = useState(0);
+  const [deviceViewMode, setDeviceViewMode] = useState<'default' | 'compact'>('default');
   
   // Settings
-  const [paperSource, setPaperSource] = useState('Feeder');
-  const [pageSize, setPageSize] = useState('A4');
+  const [paperSource, setPaperSource] = useState('Flatbed');
+  const [pageSize] = useState('A4');
   const [dpi, setDpi] = useState('300');
   const [colorMode, setColorMode] = useState('Color');
   const [fileFormat, setFileFormat] = useState('pdf');
@@ -101,6 +104,7 @@ export default function ScannerBridge() {
   // Result & UI State
   const [pages, setPages] = useState<string[]>([]);
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
+  const [pageRotations, setPageRotations] = useState<Record<number, number>>({});
   const [zoomLevel, setZoomLevel] = useState(3);
   const [ocrEnabled, setOcrEnabled] = useState(false);
   const [deskewEnabled, setDeskewEnabled] = useState(false);
@@ -128,34 +132,8 @@ export default function ScannerBridge() {
   const saveMenuRef = useRef<HTMLDivElement>(null);
   const previewBoxRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    loadDevices();
-    checkStatus();
-    
-    const clickOut = (e: MouseEvent) => {
-      if (saveMenuRef.current && !saveMenuRef.current.contains(e.target as Node)) setSaveMenuOpen(false);
-    };
-    document.addEventListener('mousedown', clickOut);
-    
-    // Ctrl + Wheel Zoom
-    const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey) {
-        e.preventDefault();
-        if (e.deltaY < 0) zoomIn();
-        else zoomOut();
-      }
-    };
-    
-    const box = previewBoxRef.current;
-    if (box) {
-      box.addEventListener('wheel', handleWheel as any, { passive: false });
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', clickOut);
-      if (box) box.removeEventListener('wheel', handleWheel as any);
-    };
-  }, []);
+  const zoomIn = () => setZoomLevel(prev => Math.max(1, prev - 1));
+  const zoomOut = () => setZoomLevel(prev => Math.min(8, prev + 1));
 
   const showAlert = (title: string, message: string, type: 'error' | 'success' = 'error') => {
     setAlertData({ open: true, title, message, type });
@@ -165,7 +143,42 @@ export default function ScannerBridge() {
     setConfirmData({ open: true, title, message, onConfirm, type });
   };
 
-  const checkStatus = async () => {
+  const loadDevices = React.useCallback(async () => {
+    setRefreshing(true);
+    setLoading(true);
+    setRefreshProgress(0);
+
+    // Simulate progress animation
+    const interval = setInterval(() => {
+      setRefreshProgress(prev => {
+        if (prev >= 95) {
+          clearInterval(interval);
+          return 95;
+        }
+        return prev + 5;
+      });
+    }, 50);
+
+    try {
+      const res = await fetch('/api/scanners');
+      const data = await res.json();
+      setScanners(data.scanners || []);
+      if (data.scanners?.length > 0 && !selectedScanner) setSelectedScanner(data.scanners[0]);
+      
+      // Complete animation
+      setRefreshProgress(100);
+      setTimeout(() => setRefreshProgress(0), 400);
+    } catch (err) {
+      console.error('Failed to load devices', err);
+      setRefreshProgress(0);
+    } finally {
+      clearInterval(interval);
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [selectedScanner]);
+
+  const checkStatus = React.useCallback(async () => {
     try {
       const res = await fetch('/api/status');
       const data = await res.json();
@@ -174,22 +187,48 @@ export default function ScannerBridge() {
     } catch {
       setStatus({ type: 'red', text: 'Server Offline' });
     }
-  };
+  }, []);
 
-  const loadDevices = async () => {
-    setRefreshing(true);
-    setLoading(true);
-    try {
-      const res = await fetch('/api/scanners');
-      const data = await res.json();
-      setScanners(data.scanners || []);
-      if (data.scanners?.length > 0 && !selectedScanner) setSelectedScanner(data.scanners[0]);
-    } catch (err) {
-      console.error('Failed to load devices', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+  useEffect(() => {
+    // Call async functions
+    const init = async () => {
+      await loadDevices();
+      await checkStatus();
+    };
+    init();
+    
+    const clickOut = (e: MouseEvent) => {
+      if (saveMenuRef.current && !saveMenuRef.current.contains(e.target as Node)) setSaveMenuOpen(false);
+    };
+    document.addEventListener('mousedown', clickOut);
+    
+    // Ctrl + Wheel Zoom
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        if (e.deltaY < 0) zoomIn();
+        else zoomOut();
+      }
+    };
+    
+    const box = previewBoxRef.current;
+    if (box) {
+      box.addEventListener('wheel', onWheel as EventListener, { passive: false });
     }
+
+    return () => {
+      document.removeEventListener('mousedown', clickOut);
+      if (box) box.removeEventListener('wheel', onWheel as EventListener);
+    };
+  }, [loadDevices, checkStatus]);
+
+  const rotateSelected = () => {
+    if (selectedPages.size === 0) return;
+    const newRotations = { ...pageRotations };
+    selectedPages.forEach(index => {
+      newRotations[index] = (newRotations[index] || 0) + 90;
+    });
+    setPageRotations(newRotations);
   };
 
   const startScan = async () => {
@@ -209,9 +248,9 @@ export default function ScannerBridge() {
       if (!res.ok) throw new Error((await res.json()).error || 'Scan failed');
       const data = await res.json();
       setPages(prev => [...prev, ...(data.pages || [])]);
-    } catch (err: any) {
-      if (err.message.includes('signal: killed')) return;
-      showAlert('Scanning Failed', err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message.includes('signal: killed')) return;
+      showAlert('Scanning Failed', err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setScanning(false);
     }
@@ -234,13 +273,16 @@ export default function ScannerBridge() {
       const res = await fetch('/api/upload', { method: 'POST', body: formData });
       const data = await res.json();
       if (data.success) setPages(prev => [...prev, data.filename]);
-    } catch (err) {
+    } catch {
       showAlert('Upload Failed', 'There was an error uploading your file.');
     }
   };
 
   const handleSave = async (isEmail = false, onlySelected = false) => {
-    const pagesToSave = onlySelected ? pages.filter((_, i) => selectedPages.has(i)) : pages;
+    const pagesToSave = pages
+      .map((name, i) => ({ name, rotation: pageRotations[i] || 0, originalIndex: i }))
+      .filter((p) => !onlySelected || selectedPages.has(p.originalIndex));
+    
     if (pagesToSave.length === 0) return;
     
     setProcessing(true);
@@ -250,7 +292,7 @@ export default function ScannerBridge() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          pages: pagesToSave,
+          pages: pagesToSave.map(p => ({ name: p.name, rotation: p.rotation })),
           format: fileFormat,
           ocr: ocrEnabled,
           deskew: deskewEnabled,
@@ -263,18 +305,25 @@ export default function ScannerBridge() {
       if (!res.ok) throw new Error((await res.json()).error || 'Save failed');
 
       if (!isEmail) {
+        const contentDisposition = res.headers.get('Content-Disposition');
+        let filename = `scan_${Date.now()}.${fileFormat}`;
+        if (contentDisposition) {
+          const match = contentDisposition.match(/filename="(.+)"/);
+          if (match) filename = match[1];
+        }
+
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `scan_${Date.now()}.${fileFormat}`;
+        a.download = filename;
         a.click();
       } else {
         showAlert('Email Sent', 'Your document has been sent successfully.', 'success');
         setEmailModal(false);
       }
-    } catch (err: any) {
-      showAlert('Export Failed', err.message);
+    } catch (err: unknown) {
+      showAlert('Export Failed', err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setProcessing(false);
     }
@@ -291,8 +340,12 @@ export default function ScannerBridge() {
     const newPages = [...pages];
     const targetIndex = direction === 'left' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= pages.length) return;
+    
+    // Swap pages
     [newPages[index], newPages[targetIndex]] = [newPages[targetIndex], newPages[index]];
     setPages(newPages);
+    
+    // Swap selections
     const newSelection = new Set<number>();
     selectedPages.forEach(i => {
       if (i === index) newSelection.add(targetIndex);
@@ -300,6 +353,13 @@ export default function ScannerBridge() {
       else newSelection.add(i);
     });
     setSelectedPages(newSelection);
+
+    // Swap rotations
+    const newRotations = { ...pageRotations };
+    const temp = newRotations[index];
+    newRotations[index] = newRotations[targetIndex];
+    newRotations[targetIndex] = temp;
+    setPageRotations(newRotations);
   };
 
   const deletePage = (index: number) => {
@@ -311,6 +371,15 @@ export default function ScannerBridge() {
       else if (i > index) newSelection.add(i - 1);
     });
     setSelectedPages(newSelection);
+
+    // Sync rotations
+    const newRotations: Record<number, number> = {};
+    Object.entries(pageRotations).forEach(([key, val]) => {
+      const i = parseInt(key);
+      if (i < index) newRotations[i] = val;
+      else if (i > index) newRotations[i - 1] = val;
+    });
+    setPageRotations(newRotations);
   };
 
   const clearScan = () => {
@@ -321,8 +390,7 @@ export default function ScannerBridge() {
     });
   };
 
-  const zoomIn = () => setZoomLevel(prev => Math.max(1, prev - 1));
-  const zoomOut = () => setZoomLevel(prev => Math.min(8, prev + 1));
+
 
   return (
     <div className={styles.container}>
@@ -334,28 +402,77 @@ export default function ScannerBridge() {
         </div>
 
         <div className={styles.section}>
-          <div className={styles.sectionTitle}>Select Device</div>
+          <div className={styles.refreshHeader}>
+            <div className={styles.sectionTitle}>Select Device</div>
+            <button 
+              className={styles.refreshBtn} 
+              onClick={loadDevices} 
+              disabled={refreshing}
+              title="Refresh device list"
+            >
+              <RefreshCw size={14} className={refreshing ? styles.spinning : ''} />
+            </button>
+          </div>
+
+          {refreshProgress > 0 && (
+            <div className={styles.progressBarMini}>
+              <div 
+                className={styles.progressBarMiniInner} 
+                style={{ width: `${refreshProgress}%` }}
+              ></div>
+            </div>
+          )}
+
+          <div className={styles.viewToggle}>
+            <button 
+              className={`${styles.viewToggleBtn} ${deviceViewMode === 'default' ? styles.viewToggleBtnActive : ''}`}
+              onClick={() => setDeviceViewMode('default')}
+            >
+              <LayoutGrid size={12} style={{ marginRight: 4 }} />
+              Default
+            </button>
+            <button 
+              className={`${styles.viewToggleBtn} ${deviceViewMode === 'compact' ? styles.viewToggleBtnActive : ''}`}
+              onClick={() => setDeviceViewMode('compact')}
+            >
+              <List size={12} style={{ marginRight: 4 }} />
+              Compact
+            </button>
+          </div>
+
           <div className={styles.deviceList}>
-            {loading ? (
+            {loading && refreshProgress === 0 ? (
               <div className="shimmer" style={{ height: 60, borderRadius: 8 }}></div>
-            ) : scanners.length > 0 ? (
-              scanners.map((dev, i) => (
-                <div 
-                  key={i} 
-                  className={`${styles.deviceCard} ${selectedScanner?.name === dev.name ? styles.deviceCardSelected : ''}`}
-                  onClick={() => setSelectedScanner(dev)}
-                >
-                  <div className={styles.deviceIcon}>
-                    <Monitor size={20} />
+            ) : deviceViewMode === 'default' ? (
+              scanners.length > 0 ? (
+                scanners.map((dev, i) => (
+                  <div 
+                    key={i} 
+                    className={`${styles.deviceCard} ${selectedScanner?.name === dev.name && selectedScanner?.driver === dev.driver ? styles.deviceCardSelected : ''}`}
+                    onClick={() => setSelectedScanner(dev)}
+                  >
+                    <div className={styles.deviceIcon}>
+                      <Monitor size={20} />
+                    </div>
+                    <div className={styles.deviceInfo}>
+                      <div className={styles.deviceName}>{dev.name}</div>
+                      <div className={styles.deviceSub}>{dev.driver.toUpperCase()} Bridge</div>
+                    </div>
                   </div>
-                  <div className={styles.deviceInfo}>
-                    <div className={styles.deviceName}>{dev.name}</div>
-                    <div className={styles.deviceSub}>{dev.driver.toUpperCase()} Bridge</div>
-                  </div>
-                </div>
-              ))
+                ))
+              ) : (
+                <div className={styles.deviceSub}>No scanners detected</div>
+              )
             ) : (
-              <div className={styles.deviceSub}>No scanners detected</div>
+              <CustomSelect 
+                label="" 
+                value={selectedScanner ? `${selectedScanner.name}|${selectedScanner.driver}` : ''} 
+                options={scanners.map(s => ({ value: `${s.name}|${s.driver}`, label: `${s.name} (${s.driver.toUpperCase()})` }))} 
+                onChange={(val) => {
+                  const [name, driver] = val.split('|');
+                  setSelectedScanner(scanners.find(s => s.name === name && s.driver === driver) || null);
+                }} 
+              />
             )}
           </div>
         </div>
@@ -509,6 +626,11 @@ export default function ScannerBridge() {
             </button>
           </div>
 
+          <button className={styles.toolBtn} onClick={rotateSelected} disabled={selectedPages.size === 0}>
+            <RotateCw size={18} className={styles.rotationIcon} />
+            <span>Rotate</span>
+          </button>
+
           <div className={styles.toolSep}></div>
 
           <button className={styles.toolBtn} onClick={clearScan} disabled={pages.length === 0}>
@@ -524,8 +646,24 @@ export default function ScannerBridge() {
                   key={`${page}-${i}`} 
                   className={`${styles.pageCard} ${selectedPages.has(i) ? styles.pageCardSelected : ''}`}
                   onClick={() => togglePageSelection(i)}
+                  style={{ 
+                    transform: `rotate(${pageRotations[i] || 0}deg)`,
+                    aspectRatio: (pageRotations[i] || 0) % 180 === 0 ? '1 / 1.41' : '1.41 / 1'
+                  }}
                 >
-                  <img src={`/api/file/${page}`} className={styles.pageImg} alt={`Page ${i+1}`} loading="lazy" />
+                  <Image 
+                    src={`/api/file/${page}`} 
+                    className={styles.pageImg} 
+                    alt={`Page ${i+1}`} 
+                    width={400} 
+                    height={600}
+                    unoptimized
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                  />
                   <div className={styles.pageNumber}>Page {i+1}</div>
                   <div className={styles.pageOverlay}>
                     <button className={styles.pageActionBtn} onClick={(e) => { e.stopPropagation(); movePage(i, 'left'); }}><ChevronLeft size={18} /></button>
@@ -551,6 +689,10 @@ export default function ScannerBridge() {
               )}
             </div>
           )}
+        </div>
+        
+        <div className={styles.footer}>
+          BUILT BY BYAMKESH KAIWARTYA
         </div>
       </div>
 

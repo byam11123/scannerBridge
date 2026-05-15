@@ -4,8 +4,10 @@ import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 
+import { getNAPS2Path } from '@/lib/naps2';
+
 const execAsync = promisify(exec);
-const NAPS2_PATH = 'C:\\Program Files\\NAPS2\\NAPS2.Console.exe';
+const NAPS2_PATH = getNAPS2Path();
 const SCAN_DIR = 'C:\\scans';
 
 export async function POST(req: Request) {
@@ -55,24 +57,41 @@ export async function POST(req: Request) {
     const command = `"${NAPS2_PATH}" ${args.join(' ')}`;
     console.log('[scan command]', command);
 
-    let scanResult: any = { stdout: '', stderr: '' };
+    let scanResult = { stdout: '', stderr: '' };
     try {
-      scanResult = await execAsync(command, { timeout: 180000 }); // Increase timeout to 3 mins
+      scanResult = await execAsync(command, { timeout: 180000 });
       if (scanResult.stdout.trim()) console.log('[stdout]', scanResult.stdout.trim());
       if (scanResult.stderr.trim()) console.error('[stderr]', scanResult.stderr.trim());
-    } catch (err: any) {
-      console.error('[scan error]', err.message);
-      scanResult.stderr = err.message;
-      // Continue to check if files were generated despite the non-zero exit code
+    } catch (err) {
+      const error = err as Error;
+      console.error('[scan error primary]', error.message);
+      
+      // Smart Fallback: If 200 or 400 DPI fails, many WIA drivers only support 300
+      if (parseInt(dpi) !== 300) {
+        console.log('[scan fallback] Retrying at 300 DPI...');
+        const fallbackArgs = args.map(a => a.startsWith('--dpi') ? '--dpi 300' : a);
+        const fallbackCommand = `"${NAPS2_PATH}" ${fallbackArgs.join(' ')}`;
+        
+        try {
+          scanResult = await execAsync(fallbackCommand, { timeout: 180000 });
+          console.log('[scan fallback success] 300 DPI worked.');
+        } catch (fallbackErr) {
+          const fallbackError = fallbackErr as Error;
+          console.error('[scan error fallback]', fallbackError.message);
+          scanResult.stderr = fallbackError.message;
+        }
+      } else {
+        scanResult.stderr = error.message;
+      }
     }
 
     const files = fs.readdirSync(SCAN_DIR);
     const matchedFiles = files
       .filter(f => f.startsWith(baseFilename) && f.endsWith(`.${format}`))
-      .sort(); // Ensure pages are in order
+      .sort(); 
 
     if (matchedFiles.length === 0) {
-      const msg = (scanResult.stderr || scanResult.stdout || 'Scan failed to produce a file. Check if the scanner is connected, has paper in the feeder, and supports the selected resolution.').trim();
+      const msg = (scanResult.stderr || scanResult.stdout || 'Scan failed. Your scanner may not support this resolution. Try 300 DPI.').trim();
       return NextResponse.json({ error: msg }, { status: 500 });
     }
 
@@ -88,7 +107,7 @@ export async function POST(req: Request) {
       } catch (e) {
         console.error('[cleanup error]', e);
       }
-    }, 120000);
+    }, 600000);
 
     return NextResponse.json({ 
       success: true, 
@@ -97,7 +116,8 @@ export async function POST(req: Request) {
       timestamp: Date.now()
     });
 
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    const error = err as Error;
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
