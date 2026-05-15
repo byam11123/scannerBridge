@@ -13,6 +13,7 @@ import {
   ChevronRight, 
   RefreshCw, 
   Settings2,
+  Zap,
   X,
   FileText,
   Monitor,
@@ -143,6 +144,38 @@ export default function ScannerBridge() {
     setConfirmData({ open: true, title, message, onConfirm, type });
   };
 
+  // Local Agent Setup State
+  const [agentInstalled, setAgentInstalled] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [setupStep, setSetupStep] = useState(1);
+  const [isInstalling, setIsInstalling] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Handle hydration
+  useEffect(() => {
+    setTimeout(() => setIsMounted(true), 0);
+  }, []);
+
+  // Initialize from persistence on mount
+  useEffect(() => {
+    if (!isMounted) return;
+    const saved = localStorage.getItem('scanner-bridge-installed');
+    setTimeout(() => {
+      if (saved === 'true') {
+        setAgentInstalled(true);
+      } else {
+        setSetupOpen(true);
+      }
+    }, 0);
+  }, [isMounted]);
+
+  // Persist installation state
+  useEffect(() => {
+    if (isMounted) {
+      localStorage.setItem('scanner-bridge-installed', agentInstalled.toString());
+    }
+  }, [agentInstalled, isMounted]);
+
   const loadDevices = React.useCallback(async () => {
     setRefreshing(true);
     setLoading(true);
@@ -229,6 +262,33 @@ export default function ScannerBridge() {
       newRotations[index] = (newRotations[index] || 0) + 90;
     });
     setPageRotations(newRotations);
+  };
+
+  const handleInstallAgent = async () => {
+    setIsInstalling(true);
+    setSetupStep(1);
+    await new Promise(r => setTimeout(r, 1200));
+    setSetupStep(2);
+    await new Promise(r => setTimeout(r, 1800));
+    setSetupStep(3);
+    
+    // Final check
+    try {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+      if (data.status === 'online') {
+        setIsInstalling(false);
+        setAgentInstalled(true);
+        setSetupOpen(false);
+        showAlert('Agent Connected', 'Scanner bridge is now active.', 'success');
+        loadDevices();
+      } else {
+        throw new Error('Not connected');
+      }
+    } catch {
+      setIsInstalling(false);
+      showAlert('Connection Failed', 'Could not detect the local agent. Please make sure it is running.');
+    }
   };
 
   const startScan = async () => {
@@ -403,78 +463,91 @@ export default function ScannerBridge() {
 
         <div className={styles.section}>
           <div className={styles.refreshHeader}>
-            <div className={styles.sectionTitle}>Select Device</div>
+            <div className={styles.sectionTitle}>Scanner Bridge</div>
             <button 
               className={styles.refreshBtn} 
-              onClick={loadDevices} 
-              disabled={refreshing}
-              title="Refresh device list"
+              onClick={() => setSetupOpen(true)}
+              title="Agent Settings"
             >
-              <RefreshCw size={14} className={refreshing ? styles.spinning : ''} />
+              <Settings2 size={14} />
             </button>
           </div>
+          
+          {!agentInstalled ? (
+            <div className={styles.setupCard}>
+              <Zap size={20} className={styles.setupIcon} />
+              <p>Agent Required</p>
+              <button onClick={() => setSetupOpen(true)}>Start Setup</button>
+            </div>
+          ) : (
+            <div className={styles.deviceList}>
+              <div className={styles.refreshHeader}>
+                <div className={styles.sectionTitle}>Select Device</div>
+                <button 
+                  className={styles.refreshBtn} 
+                  onClick={loadDevices} 
+                  disabled={refreshing}
+                  title="Refresh device list"
+                >
+                  <RefreshCw size={14} className={refreshing ? styles.spinning : ''} />
+                </button>
+              </div>
 
-          {refreshProgress > 0 && (
-            <div className={styles.progressBarMini}>
-              <div 
-                className={styles.progressBarMiniInner} 
-                style={{ width: `${refreshProgress}%` }}
-              ></div>
+              {refreshProgress > 0 && (
+                <div className={styles.progressBarMini}>
+                  <div 
+                    className={styles.progressBarMiniInner} 
+                    style={{ width: `${refreshProgress}%` }}
+                  ></div>
+                </div>
+              )}
+
+              <div className={styles.viewToggle}>
+                <button 
+                  className={`${styles.viewToggleBtn} ${deviceViewMode === 'default' ? styles.viewToggleBtnActive : ''}`}
+                  onClick={() => setDeviceViewMode('default')}
+                >
+                  <LayoutGrid size={12} style={{ marginRight: 4 }} />
+                  Default
+                </button>
+                <button 
+                  className={`${styles.viewToggleBtn} ${deviceViewMode === 'compact' ? styles.viewToggleBtnActive : ''}`}
+                  onClick={() => setDeviceViewMode('compact')}
+                >
+                  <List size={12} style={{ marginRight: 4 }} />
+                  Compact
+                </button>
+              </div>
+
+              <div className={styles.deviceListInner}>
+                {loading && refreshProgress === 0 ? (
+                  <div className="shimmer" style={{ height: 60, borderRadius: 8 }}></div>
+                ) : deviceViewMode === 'default' ? (
+                  scanners.length > 0 ? (
+                    scanners.map((dev, i) => (
+                      <div 
+                        key={i} 
+                        className={`${styles.deviceCard} ${selectedScanner?.name === dev.name && selectedScanner?.driver === dev.driver ? styles.deviceCardSelected : ''}`}
+                        onClick={() => setSelectedScanner(dev)}
+                      >
+                        <div className={styles.deviceIcon}>
+                          <Monitor size={20} />
+                        </div>
+                        <div className={styles.deviceInfo}>
+                          <div className={styles.deviceName}>{dev.name}</div>
+                          <div className={styles.deviceSub}>{dev.driver.toUpperCase()} Bridge</div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className={styles.deviceSub}>No scanners detected</div>
+                  )
+                ) : (
+                  <div className={styles.deviceSub}>Select from list above</div>
+                )}
+              </div>
             </div>
           )}
-
-          <div className={styles.viewToggle}>
-            <button 
-              className={`${styles.viewToggleBtn} ${deviceViewMode === 'default' ? styles.viewToggleBtnActive : ''}`}
-              onClick={() => setDeviceViewMode('default')}
-            >
-              <LayoutGrid size={12} style={{ marginRight: 4 }} />
-              Default
-            </button>
-            <button 
-              className={`${styles.viewToggleBtn} ${deviceViewMode === 'compact' ? styles.viewToggleBtnActive : ''}`}
-              onClick={() => setDeviceViewMode('compact')}
-            >
-              <List size={12} style={{ marginRight: 4 }} />
-              Compact
-            </button>
-          </div>
-
-          <div className={styles.deviceList}>
-            {loading && refreshProgress === 0 ? (
-              <div className="shimmer" style={{ height: 60, borderRadius: 8 }}></div>
-            ) : deviceViewMode === 'default' ? (
-              scanners.length > 0 ? (
-                scanners.map((dev, i) => (
-                  <div 
-                    key={i} 
-                    className={`${styles.deviceCard} ${selectedScanner?.name === dev.name && selectedScanner?.driver === dev.driver ? styles.deviceCardSelected : ''}`}
-                    onClick={() => setSelectedScanner(dev)}
-                  >
-                    <div className={styles.deviceIcon}>
-                      <Monitor size={20} />
-                    </div>
-                    <div className={styles.deviceInfo}>
-                      <div className={styles.deviceName}>{dev.name}</div>
-                      <div className={styles.deviceSub}>{dev.driver.toUpperCase()} Bridge</div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className={styles.deviceSub}>No scanners detected</div>
-              )
-            ) : (
-              <CustomSelect 
-                label="" 
-                value={selectedScanner ? `${selectedScanner.name}|${selectedScanner.driver}` : ''} 
-                options={scanners.map(s => ({ value: `${s.name}|${s.driver}`, label: `${s.name} (${s.driver.toUpperCase()})` }))} 
-                onChange={(val) => {
-                  const [name, driver] = val.split('|');
-                  setSelectedScanner(scanners.find(s => s.name === name && s.driver === driver) || null);
-                }} 
-              />
-            )}
-          </div>
         </div>
 
         <div className={styles.section}>
@@ -538,8 +611,6 @@ export default function ScannerBridge() {
           </button>
           <input type="file" id="import-file" hidden onChange={handleImport} accept="image/*,application/pdf" />
 
-          <div className={styles.toolSep}></div>
-
           <button className={`${styles.toolBtn} ${ocrEnabled ? styles.toolBtnActive : ''}`} onClick={() => setOcrEnabled(!ocrEnabled)}>
             <Search size={18} />
             <span>OCR</span>
@@ -547,6 +618,13 @@ export default function ScannerBridge() {
           <button className={`${styles.toolBtn} ${deskewEnabled ? styles.toolBtnActive : ''}`} onClick={() => setDeskewEnabled(!deskewEnabled)}>
             <Settings2 size={18} />
             <span>Deskew</span>
+          </button>
+
+          <div className={styles.toolSep}></div>
+
+          <button className={styles.toolBtn} onClick={rotateSelected} disabled={selectedPages.size === 0}>
+            <RotateCw size={18} className={styles.rotationIcon} />
+            <span>Rotate</span>
           </button>
 
           <div className={styles.toolSep}></div>
@@ -617,23 +695,15 @@ export default function ScannerBridge() {
             <span>Email</span>
           </button>
 
-          <div className={styles.zoomControls}>
-            <button className={styles.zoomBtn} onClick={zoomOut} disabled={zoomLevel === 8} title="Zoom Out">
-              <ZoomOut size={16} />
-            </button>
-            <button className={styles.zoomBtn} onClick={zoomIn} disabled={zoomLevel === 1} title="Zoom In">
-              <ZoomIn size={16} />
-            </button>
-          </div>
-
-          <button className={styles.toolBtn} onClick={rotateSelected} disabled={selectedPages.size === 0}>
-            <RotateCw size={18} className={styles.rotationIcon} />
-            <span>Rotate</span>
-          </button>
-
           <div className={styles.toolSep}></div>
 
-          <button className={styles.toolBtn} onClick={clearScan} disabled={pages.length === 0}>
+          <div className={styles.zoomControls}>
+            <button className={styles.zoomBtn} onClick={() => setZoomLevel(Math.max(1, zoomLevel - 1))}><ZoomOut size={14} /></button>
+            <div className={styles.zoomLevel}>{zoomLevel}x</div>
+            <button className={styles.zoomBtn} onClick={() => setZoomLevel(Math.min(6, zoomLevel + 1))}><ZoomIn size={14} /></button>
+          </div>
+
+          <button className={`${styles.toolBtn} ${styles.toolBtnDanger}`} onClick={clearScan} disabled={pages.length === 0}>
             <Trash2 size={18} />
           </button>
         </div>
@@ -643,26 +713,17 @@ export default function ScannerBridge() {
             <div className={styles.gridContainer} style={{ gridTemplateColumns: `repeat(${zoomLevel}, 1fr)` }}>
               {pages.map((page, i) => (
                 <div 
-                  key={`${page}-${i}`} 
+                  key={i} 
                   className={`${styles.pageCard} ${selectedPages.has(i) ? styles.pageCardSelected : ''}`}
                   onClick={() => togglePageSelection(i)}
-                  style={{ 
-                    transform: `rotate(${pageRotations[i] || 0}deg)`,
-                    aspectRatio: (pageRotations[i] || 0) % 180 === 0 ? '1 / 1.41' : '1.41 / 1'
-                  }}
                 >
                   <Image 
-                    src={`/api/file/${page}`} 
-                    className={styles.pageImg} 
+                    src={page} 
                     alt={`Page ${i+1}`} 
                     width={400} 
-                    height={600}
-                    unoptimized
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover'
-                    }}
+                    height={600} 
+                    className={styles.pageImage} 
+                    style={{ transform: `rotate(${pageRotations[i] || 0}deg)` }}
                   />
                   <div className={styles.pageNumber}>Page {i+1}</div>
                   <div className={styles.pageOverlay}>
@@ -695,6 +756,63 @@ export default function ScannerBridge() {
           BUILT BY BYAMKESH KAIWARTYA
         </div>
       </div>
+
+      {/* ── SETUP SIDEBAR ── */}
+      {setupOpen && (
+        <>
+          <div className={styles.modalOverlay} onClick={() => !isInstalling && setSetupOpen(false)} />
+          <div className={styles.setupSidebar}>
+            <div className={styles.setupHeader}>
+              <div>
+                <h3>Agent Setup</h3>
+                <p>Bridge your browser to local hardware</p>
+              </div>
+              <button onClick={() => setSetupOpen(false)}><X size={20} /></button>
+            </div>
+
+            <div className={styles.setupBody}>
+              {[
+                { id: 1, label: 'Download Agent', desc: 'Secure connector app (~2MB)' },
+                { id: 2, label: 'Run Installer', desc: 'One-click background service' },
+                { id: 3, label: 'Detect Scanners', desc: 'Hardware synchronization' }
+              ].map(s => (
+                <div key={s.id} className={styles.stepRow}>
+                  <div className={`${styles.stepDot} ${agentInstalled || setupStep > s.id ? styles.stepDone : setupStep === s.id && isInstalling ? styles.stepActive : ''}`}>
+                    {agentInstalled || setupStep > s.id ? '✓' : s.id}
+                  </div>
+                  <div>
+                    <div className={styles.stepLabel}>{s.label}</div>
+                    <div className={styles.stepDesc}>{s.desc}</div>
+                  </div>
+                </div>
+              ))}
+
+              <div className={styles.setupInfo}>
+                <strong>Why is this needed?</strong>
+                <p>Browsers are sandboxed for safety. This agent bridges your computer&apos;s drivers (WIA/TWAIN) to the web interface securely.</p>
+              </div>
+
+              {agentInstalled && (
+                <button className={styles.resetBtn} onClick={() => { setAgentInstalled(false); localStorage.removeItem('scanner-bridge-installed'); }}>
+                  Remove Agent
+                </button>
+              )}
+            </div>
+
+            {!agentInstalled && (
+              <div className={styles.setupFooter}>
+                <button 
+                  className={styles.primaryBtn} 
+                  onClick={handleInstallAgent}
+                  disabled={isInstalling}
+                >
+                  {isInstalling ? 'Installing Agent...' : '⚡ Download & Start Agent'}
+                </button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {/* ── FLOATING SCAN PROGRESS ── */}
       {scanning && (
@@ -847,7 +965,7 @@ export default function ScannerBridge() {
       {alertData?.open && (
         <div className={styles.modal}>
           <div className={`${styles.modalContent} ${styles.confirmContent}`}>
-            <div className={`${styles.confirmIcon} ${alertData.type === 'success' ? styles.sdotGreen : styles.confirmIcon}`} style={{ background: alertData.type === 'success' ? '#10b9811a' : '#ef44441a', color: alertData.type === 'success' ? '#10b981' : '#ef4444' }}>
+            <div className={`${styles.confirmIcon} ${alertData.type === 'success' ? styles.sdotGreen : styles.confirmIcon}`} style={{ background: alertData.type === 'success' ? '#10b9811a' : '#ef44441a' }}>
               {alertData.type === 'success' ? <CheckCircle2 size={28} /> : <AlertTriangle size={28} />}
             </div>
             <div className={styles.confirmTitle}>{alertData.title}</div>

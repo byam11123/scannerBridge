@@ -4,7 +4,7 @@ import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 
-import { getNAPS2Path } from '@/lib/naps2';
+import { getNAPS2Path, humanizeScanError } from '@/lib/naps2';
 
 const execAsync = promisify(exec);
 const NAPS2_PATH = getNAPS2Path();
@@ -91,7 +91,8 @@ export async function POST(req: Request) {
       .sort(); 
 
     if (matchedFiles.length === 0) {
-      const msg = (scanResult.stderr || scanResult.stdout || 'Scan failed. Your scanner may not support this resolution. Try 300 DPI.').trim();
+      const rawError = (scanResult.stderr || scanResult.stdout || 'Scan failed.').trim();
+      const msg = humanizeScanError(rawError);
       return NextResponse.json({ error: msg }, { status: 500 });
     }
 
@@ -118,6 +119,6 @@ export async function POST(req: Request) {
 
   } catch (err) {
     const error = err as Error;
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: humanizeScanError(error.message) }, { status: 500 });
   }
 }
