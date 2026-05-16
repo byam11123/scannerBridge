@@ -48,10 +48,11 @@ export async function POST() {
       throw new Error('Installation finished but NAPS2 was not detected. You may need to restart the application.');
     }
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during installation.';
     console.error('Install error:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'An unknown error occurred during installation.' },
+      { success: false, error: errorMessage },
       { status: 500 }
     );
   }
