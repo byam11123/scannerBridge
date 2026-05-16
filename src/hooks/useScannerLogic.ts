@@ -66,6 +66,7 @@ export function useScannerLogic() {
   // Local Agent Setup State
   const [isMounted, setIsMounted] = useState(false);
   const [isVercel, setIsVercel] = useState(false);
+  const [agentInstalled, setAgentInstalled] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [setupStep, setSetupStep] = useState(1);
   const [isInstalling, setIsInstalling] = useState(false);
