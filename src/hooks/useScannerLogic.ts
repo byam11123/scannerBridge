@@ -50,6 +50,7 @@ export function useScannerLogic() {
 
   const saveMenuRef = useRef<HTMLDivElement>(null);
   const previewBoxRef = useRef<HTMLDivElement>(null);
+  const startScanRef = useRef<(() => Promise<void>) | null>(null);
 
   const zoomIn = useCallback(() => setZoomLevel(prev => Math.max(1, prev - 1)), []);
   const zoomOut = useCallback(() => setZoomLevel(prev => Math.min(8, prev + 1)), []);
@@ -70,53 +71,12 @@ export function useScannerLogic() {
   const [isMounted, setIsMounted] = useState(false);
   const [theme, setTheme] = useState('dark');
 
-  // Handle hydration
-  useEffect(() => {
-    setTimeout(() => setIsMounted(true), 0);
-  }, []);
-
-  // Initialize from persistence on mount
-  useEffect(() => {
-    if (!isMounted) return;
-    const saved = localStorage.getItem('scanner-bridge-installed');
-    const savedTheme = localStorage.getItem('scanner-bridge-theme');
-    const savedScannerName = localStorage.getItem('scanner-bridge-selected-name');
-    setTimeout(() => {
-      if (saved === 'true') {
-        setAgentInstalled(true);
-      } else {
-        setSetupOpen(true);
-      }
-      if (savedTheme) {
-        setTheme(savedTheme);
-      }
-      if (savedScannerName) {
-        // We'll use this in loadDevices to auto-select
-      }
-    }, 0);
-  }, [isMounted]);
-
-  // Persist installation state and theme
-  useEffect(() => {
-    if (isMounted) {
-      localStorage.setItem('scanner-bridge-installed', agentInstalled.toString());
-      localStorage.setItem('scanner-bridge-theme', theme);
-      if (selectedScanner) {
-        localStorage.setItem('scanner-bridge-selected-name', selectedScanner.name);
-      }
-      if (initialLoadDone) {
-        localStorage.setItem('scanner-bridge-session-files', JSON.stringify(pages));
-      }
-      document.documentElement.setAttribute('data-theme', theme);
-    }
-  }, [agentInstalled, theme, isMounted, selectedScanner, pages, initialLoadDone]);
-
+  // --- Helper Functions ---
   const loadDevices = useCallback(async () => {
     setRefreshing(true);
     setLoading(true);
     setRefreshProgress(0);
 
-    // Simulate progress animation
     const interval = setInterval(() => {
       setRefreshProgress(prev => {
         if (prev >= 95) {
@@ -133,11 +93,10 @@ export function useScannerLogic() {
       const rawScanners = data.scanners || [];
       const driverPriority: Record<string, number> = { 'escl': 3, 'wia': 2, 'twain': 1 };
       const savedScannerName = localStorage.getItem('scanner-bridge-selected-name');
-      const uniqueScanners = rawScanners.reduce((acc: any[], current: any) => {
+      const uniqueScanners = rawScanners.reduce((acc: Scanner[], current: Scanner) => {
         const existingIndex = acc.findIndex(s => s.name === current.name);
         if (existingIndex > -1) {
           const existing = acc[existingIndex];
-          // If same driver, ignore. If different, pick higher priority.
           if (driverPriority[current.driver?.toLowerCase()] > driverPriority[existing.driver?.toLowerCase()]) {
             acc[existingIndex] = current;
           }
@@ -148,17 +107,13 @@ export function useScannerLogic() {
       }, []);
 
       setScanners(uniqueScanners);
-      
-      // Auto-select based on persistence or first available
       if (uniqueScanners.length > 0) {
-        const saved = uniqueScanners.find((s: any) => s.name === savedScannerName);
+        const saved = uniqueScanners.find((s: Scanner) => s.name === savedScannerName);
         if (saved) setSelectedScanner(saved);
         else {
           setSelectedScanner(current => current || uniqueScanners[0]);
         }
       }
-      
-      // Complete animation
       setRefreshProgress(100);
       setTimeout(() => setRefreshProgress(0), 400);
     } catch (err) {
@@ -169,7 +124,7 @@ export function useScannerLogic() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []); // Removed selectedScanner from dependencies to prevent infinite loops
+  }, []);
 
   const checkStatus = useCallback(async () => {
     try {
@@ -188,7 +143,6 @@ export function useScannerLogic() {
       if (savedSession) {
         const sessionFiles = JSON.parse(savedSession);
         if (sessionFiles && Array.isArray(sessionFiles)) {
-          // Verify they still exist on server
           const res = await fetch('/api/files');
           const data = await res.json();
           if (data.files) {
@@ -199,7 +153,7 @@ export function useScannerLogic() {
           return;
         }
       }
-      setInitialLoadDone(true); // Even if no session, we are done
+      setInitialLoadDone(true);
     } catch (err) {
       console.error('Failed to load session files:', err);
       setInitialLoadDone(true);
@@ -208,22 +162,17 @@ export function useScannerLogic() {
 
   const deleteSelectedPages = useCallback(async () => {
     if (selectedPages.size === 0) return;
-    
     const filenames = Array.from(selectedPages).map(i => pages[i]);
-
     try {
       await fetch('/api/clear', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filenames })
       });
-
-      // We need to calculate new indices for everything not deleted
       setPages(prev => prev.filter((_, i) => !selectedPages.has(i)));
       setSelectedPages(new Set());
       setPageRotations(prev => {
         const next: Record<number, number> = {};
-        // Re-map rotations for remaining pages
         let nextIdx = 0;
         pages.forEach((_, i) => {
           if (!selectedPages.has(i)) {
@@ -238,6 +187,8 @@ export function useScannerLogic() {
       showAlert('Deletion Failed', 'Some files could not be deleted.');
     }
   }, [pages, selectedPages, showAlert]);
+
+
 
   useEffect(() => {
     const init = async () => {
@@ -279,7 +230,7 @@ export function useScannerLogic() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [pages, selectedPages, deleteSelectedPages]);
+  }, [pages, selectedPages, deleteSelectedPages, showConfirm]);
 
   // Separate Wheel Zoom Effect to ensure Ref availability
   useEffect(() => {
@@ -380,7 +331,7 @@ export function useScannerLogic() {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       
       showConfirm('Printer Error', `Scanning failed: ${errorMsg}. Would you like to try again?`, () => {
-        setTimeout(startScan, 300);
+        setTimeout(() => startScanRef.current?.(), 300);
       }, 'danger', 'Retry Scan', 'Dismiss');
     } finally {
       clearInterval(interval);
@@ -549,7 +500,7 @@ export function useScannerLogic() {
     }, 'danger', 'Clear All', 'Cancel');
   }, [showConfirm, pages]);
 
-  return {
+  const results = {
     scanners,
     selectedScanner,
     setSelectedScanner,
@@ -628,4 +579,110 @@ export function useScannerLogic() {
     theme,
     setTheme
   };
+
+  // --- Effects (Moved to bottom to avoid hoisting issues) ---
+  
+  // Handle hydration
+  useEffect(() => {
+    setTimeout(() => setIsMounted(true), 0);
+  }, []);
+
+  // Initialize from persistence on mount
+  useEffect(() => {
+    if (!isMounted) return;
+    const saved = localStorage.getItem('scanner-bridge-installed');
+    const savedTheme = localStorage.getItem('scanner-bridge-theme');
+    setTimeout(() => {
+      if (saved === 'true') {
+        setAgentInstalled(true);
+      } else {
+        setSetupOpen(true);
+      }
+      if (savedTheme) {
+        setTheme(savedTheme);
+      }
+    }, 0);
+  }, [isMounted]);
+
+  // Persist installation state and theme
+  useEffect(() => {
+    if (isMounted) {
+      localStorage.setItem('scanner-bridge-installed', agentInstalled.toString());
+      localStorage.setItem('scanner-bridge-theme', theme);
+      if (selectedScanner) {
+        localStorage.setItem('scanner-bridge-selected-name', selectedScanner.name);
+      }
+      if (initialLoadDone) {
+        localStorage.setItem('scanner-bridge-session-files', JSON.stringify(pages));
+      }
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+  }, [agentInstalled, theme, isMounted, selectedScanner, pages, initialLoadDone]);
+
+  useEffect(() => {
+    const init = async () => {
+      await loadDevices();
+      await checkStatus();
+      await loadExistingFiles();
+    };
+    init();
+    
+    const clickOut = (e: MouseEvent) => {
+      if (saveMenuRef.current && !saveMenuRef.current.contains(e.target as Node)) setSaveMenuOpen(false);
+    };
+    document.addEventListener('mousedown', clickOut);
+
+    return () => {
+      document.removeEventListener('mousedown', clickOut);
+    };
+  }, [loadDevices, checkStatus, loadExistingFiles]);
+
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key.toLowerCase() === 'a') {
+        if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName || '')) return;
+        e.preventDefault();
+        setSelectedPages(new Set(Array.from({ length: pages.length }, (_, i) => i)));
+      }
+      
+      if (e.key === 'Delete' && selectedPages.size > 0) {
+        if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName || '')) return;
+        e.preventDefault();
+        showConfirm('Delete Selected', `Are you sure you want to delete ${selectedPages.size} selected pages?`, () => {
+          deleteSelectedPages();
+          setConfirmData(null);
+        }, 'danger', `Delete ${selectedPages.size} ${selectedPages.size === 1 ? 'Page' : 'Pages'}`, 'Cancel');
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [pages, selectedPages, deleteSelectedPages, showConfirm]);
+
+  // Separate Wheel Zoom Effect to ensure Ref availability
+  useEffect(() => {
+    if (!isMounted) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        if (e.deltaY < 0) zoomIn();
+        else zoomOut();
+      }
+    };
+
+    const box = previewBoxRef.current;
+    if (box) {
+      box.addEventListener('wheel', onWheel as EventListener, { passive: false });
+      return () => {
+        box.removeEventListener('wheel', onWheel as EventListener);
+      };
+    }
+  }, [isMounted, zoomIn, zoomOut]);
+
+  useEffect(() => {
+    startScanRef.current = startScan;
+  }, [startScan]);
+
+  return results;
 }

@@ -9,8 +9,6 @@ import {
   Box, 
   Mail, 
   Trash2, 
-  ChevronLeft, 
-  ChevronRight, 
   RefreshCw, 
   Settings2,
   Zap,
@@ -87,13 +85,13 @@ export default function ScannerBridge() {
   const {
     scanners, selectedScanner, setSelectedScanner, loading, refreshing, scanning, status, refreshProgress, scanProgress,
     deviceViewMode, setDeviceViewMode, paperSource, setPaperSource, dpi, setDpi, colorMode, setColorMode,
-    fileFormat, setFileFormat, pages, selectedPages, pageRotations, zoomLevel, setZoomLevel,
+    fileFormat, setFileFormat, pages, selectedPages, pageRotations, zoomLevel,
     ocrEnabled, setOcrEnabled, deskewEnabled, setDeskewEnabled, emailModal, setEmailModal, emailData, setEmailData,
     processing, saveMenuOpen, setSaveMenuOpen, pdfSettingsModal, setPdfSettingsModal, imageSettingsModal, setImageSettingsModal,
     pdfSettings, setPdfSettings, imageQuality, setImageQuality, confirmData, setConfirmData, alertData, setAlertData,
     saveMenuRef, previewBoxRef, agentInstalled, setAgentInstalled,
     setupOpen, setSetupOpen, setupStep, isInstalling, isMounted, loadDevices, rotateSelected,
-    handleInstallAgent, startScan, cancelScan, handleImport, handleSave, togglePageSelection, movePage, deletePage, clearScan, rotatePage,
+    handleInstallAgent, startScan, cancelScan, handleImport, handleSave, togglePageSelection, deletePage, clearScan, rotatePage,
     theme, setTheme, zoomIn, zoomOut
   } = useScannerLogic();
 
