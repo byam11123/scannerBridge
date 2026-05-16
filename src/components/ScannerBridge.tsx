@@ -485,7 +485,8 @@ export default function ScannerBridge() {
                   onClick={handleInstallAgent}
                   disabled={isInstalling}
                 >
-                  {isInstalling ? 'Installing Agent...' : '⚡ Download & Start Agent'}
+                  <Zap size={16} />
+                  {isInstalling ? 'Installing Agent...' : 'Authorize & Install Agent'}
                 </button>
               </div>
             )}

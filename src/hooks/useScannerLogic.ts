@@ -273,32 +273,37 @@ export function useScannerLogic() {
   const handleInstallAgent = useCallback(async () => {
     setIsInstalling(true);
     setSetupStep(1);
-    await new Promise(r => setTimeout(r, 1200));
-    setSetupStep(2);
-    await new Promise(r => setTimeout(r, 1800));
-    setSetupStep(3);
     
-    // Final check
     try {
-      const res = await fetch('/api/status');
+      const res = await fetch('/api/install', { method: 'POST' });
       const data = await res.json();
-      if (data.status === 'online') {
+      
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Installation failed');
+      }
+
+      setSetupStep(2);
+      await new Promise(r => setTimeout(r, 1000));
+      setSetupStep(3);
+      
+      // Final check
+      const statusRes = await fetch('/api/status');
+      const statusData = await statusRes.json();
+      
+      if (statusData.status === 'online') {
         setIsInstalling(false);
         setAgentInstalled(true);
         setSetupOpen(false);
         showAlert('Agent Connected', 'Scanner bridge is now active.', 'success');
         loadDevices();
-      } else if (data.status === 'cloud') {
-        setIsInstalling(false);
-        showAlert('Local Run Required', 'This application is running in the cloud (Vercel). To scan documents, you must run it locally on your computer.', 'error');
       } else {
-        throw new Error(data.message || 'Not connected');
+        throw new Error('Agent installed but not yet detected. Try refreshing.');
       }
     } catch (err: unknown) {
-      console.error('Connection check failed:', err);
+      console.error('Installation failed:', err);
       const msg = err instanceof Error ? err.message : 'Unknown error';
       setIsInstalling(false);
-      showAlert('Connection Failed', `Could not detect the local agent (${msg}). Please make sure it is running.`);
+      showAlert('Setup Failed', `We couldn't install the agent automatically. ${msg}. You may need to download NAPS2 manually from naps2.com.`);
     }
   }, [showAlert, loadDevices]);
 
