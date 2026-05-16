@@ -25,6 +25,7 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCw,
+  RotateCcw,
   LayoutGrid,
   List,
   StopCircle,
@@ -32,11 +33,6 @@ import {
   Info
 } from 'lucide-react';
 import styles from './ScannerBridge.module.css';
-
-interface Scanner {
-  name: string;
-  driver: string;
-}
 
 // Custom Select Component
 function CustomSelect({ label, value, options, onChange }: { 
@@ -58,7 +54,7 @@ function CustomSelect({ label, value, options, onChange }: {
 
   return (
     <div className={styles.field} ref={ref}>
-      <div className={styles.fieldLabel}>{label}</div>
+      {label && <div className={styles.fieldLabel}>{label}</div>}
       <div className={styles.customSelect}>
         <div className={styles.selectTrigger} onClick={() => setOpen(!open)}>
           <span>{options.find(o => o.value === value)?.label || value}</span>
@@ -85,371 +81,23 @@ function CustomSelect({ label, value, options, onChange }: {
   );
 }
 
+import { useScannerLogic } from '../hooks/useScannerLogic';
+
 export default function ScannerBridge() {
-  const [scanners, setScanners] = useState<Scanner[]>([]);
-  const [selectedScanner, setSelectedScanner] = useState<Scanner | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const [status, setStatus] = useState({ type: 'pulse', text: 'Connecting...' });
-  const [refreshProgress, setRefreshProgress] = useState(0);
-  const [deviceViewMode, setDeviceViewMode] = useState<'default' | 'compact'>('default');
-  
-  // Settings
-  const [paperSource, setPaperSource] = useState('Flatbed');
-  const [pageSize] = useState('A4');
-  const [dpi, setDpi] = useState('300');
-  const [colorMode, setColorMode] = useState('Color');
-  const [fileFormat, setFileFormat] = useState('pdf');
-  
-  // Result & UI State
-  const [pages, setPages] = useState<string[]>([]);
-  const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
-  const [pageRotations, setPageRotations] = useState<Record<number, number>>({});
-  const [zoomLevel, setZoomLevel] = useState(3);
-  const [ocrEnabled, setOcrEnabled] = useState(false);
-  const [deskewEnabled, setDeskewEnabled] = useState(false);
-  const [emailModal, setEmailModal] = useState(false);
-  const [emailData, setEmailData] = useState({ to: '', subject: 'Scanned Document', body: 'Please find the attached scanned document.' });
-  const [processing, setProcessing] = useState(false);
-  
-  // Dropdown & Settings States
-  const [saveMenuOpen, setSaveMenuOpen] = useState(false);
-  const [pdfSettingsModal, setPdfSettingsModal] = useState(false);
-  const [imageSettingsModal, setImageSettingsModal] = useState(false);
-  
-  const [pdfSettings, setPdfSettings] = useState({
-    title: 'Scanned Document',
-    author: 'NAPS2 Bridge',
-    subject: 'Scanned Document',
-    keywords: ''
-  });
-  const [imageQuality, setImageQuality] = useState(75);
+  const {
+    scanners, selectedScanner, setSelectedScanner, loading, refreshing, scanning, status, refreshProgress, scanProgress,
+    deviceViewMode, setDeviceViewMode, paperSource, setPaperSource, dpi, setDpi, colorMode, setColorMode,
+    fileFormat, setFileFormat, pages, selectedPages, pageRotations, zoomLevel, setZoomLevel,
+    ocrEnabled, setOcrEnabled, deskewEnabled, setDeskewEnabled, emailModal, setEmailModal, emailData, setEmailData,
+    processing, saveMenuOpen, setSaveMenuOpen, pdfSettingsModal, setPdfSettingsModal, imageSettingsModal, setImageSettingsModal,
+    pdfSettings, setPdfSettings, imageQuality, setImageQuality, confirmData, setConfirmData, alertData, setAlertData,
+    saveMenuRef, previewBoxRef, agentInstalled, setAgentInstalled,
+    setupOpen, setSetupOpen, setupStep, isInstalling, isMounted, loadDevices, rotateSelected,
+    handleInstallAgent, startScan, cancelScan, handleImport, handleSave, togglePageSelection, movePage, deletePage, clearScan, rotatePage,
+    theme, setTheme, zoomIn, zoomOut
+  } = useScannerLogic();
 
-  // Custom Dialog States
-  const [confirmData, setConfirmData] = useState<{ open: boolean; title: string; message: string; type: 'danger' | 'info'; onConfirm: () => void } | null>(null);
-  const [alertData, setAlertData] = useState<{ open: boolean; title: string; message: string; type: 'error' | 'success' } | null>(null);
-
-  const saveMenuRef = useRef<HTMLDivElement>(null);
-  const previewBoxRef = useRef<HTMLDivElement>(null);
-
-  const zoomIn = () => setZoomLevel(prev => Math.max(1, prev - 1));
-  const zoomOut = () => setZoomLevel(prev => Math.min(8, prev + 1));
-
-  const showAlert = (title: string, message: string, type: 'error' | 'success' = 'error') => {
-    setAlertData({ open: true, title, message, type });
-  };
-
-  const showConfirm = (title: string, message: string, onConfirm: () => void, type: 'danger' | 'info' = 'danger') => {
-    setConfirmData({ open: true, title, message, onConfirm, type });
-  };
-
-  // Local Agent Setup State
-  const [agentInstalled, setAgentInstalled] = useState(false);
-  const [setupOpen, setSetupOpen] = useState(false);
-  const [setupStep, setSetupStep] = useState(1);
-  const [isInstalling, setIsInstalling] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-
-  // Handle hydration
-  useEffect(() => {
-    setTimeout(() => setIsMounted(true), 0);
-  }, []);
-
-  // Initialize from persistence on mount
-  useEffect(() => {
-    if (!isMounted) return;
-    const saved = localStorage.getItem('scanner-bridge-installed');
-    setTimeout(() => {
-      if (saved === 'true') {
-        setAgentInstalled(true);
-      } else {
-        setSetupOpen(true);
-      }
-    }, 0);
-  }, [isMounted]);
-
-  // Persist installation state
-  useEffect(() => {
-    if (isMounted) {
-      localStorage.setItem('scanner-bridge-installed', agentInstalled.toString());
-    }
-  }, [agentInstalled, isMounted]);
-
-  const loadDevices = React.useCallback(async () => {
-    setRefreshing(true);
-    setLoading(true);
-    setRefreshProgress(0);
-
-    // Simulate progress animation
-    const interval = setInterval(() => {
-      setRefreshProgress(prev => {
-        if (prev >= 95) {
-          clearInterval(interval);
-          return 95;
-        }
-        return prev + 5;
-      });
-    }, 50);
-
-    try {
-      const res = await fetch('/api/scanners');
-      const data = await res.json();
-      setScanners(data.scanners || []);
-      if (data.scanners?.length > 0 && !selectedScanner) setSelectedScanner(data.scanners[0]);
-      
-      // Complete animation
-      setRefreshProgress(100);
-      setTimeout(() => setRefreshProgress(0), 400);
-    } catch (err) {
-      console.error('Failed to load devices', err);
-      setRefreshProgress(0);
-    } finally {
-      clearInterval(interval);
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [selectedScanner]);
-
-  const checkStatus = React.useCallback(async () => {
-    try {
-      const res = await fetch('/api/status');
-      const data = await res.json();
-      if (data.status === 'online') setStatus({ type: 'green', text: 'Bridge Online' });
-      else setStatus({ type: 'red', text: 'NAPS2 Missing' });
-    } catch {
-      setStatus({ type: 'red', text: 'Server Offline' });
-    }
-  }, []);
-
-  useEffect(() => {
-    // Call async functions
-    const init = async () => {
-      await loadDevices();
-      await checkStatus();
-    };
-    init();
-    
-    const clickOut = (e: MouseEvent) => {
-      if (saveMenuRef.current && !saveMenuRef.current.contains(e.target as Node)) setSaveMenuOpen(false);
-    };
-    document.addEventListener('mousedown', clickOut);
-    
-    // Ctrl + Wheel Zoom
-    const onWheel = (e: WheelEvent) => {
-      if (e.ctrlKey) {
-        e.preventDefault();
-        if (e.deltaY < 0) zoomIn();
-        else zoomOut();
-      }
-    };
-    
-    const box = previewBoxRef.current;
-    if (box) {
-      box.addEventListener('wheel', onWheel as EventListener, { passive: false });
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', clickOut);
-      if (box) box.removeEventListener('wheel', onWheel as EventListener);
-    };
-  }, [loadDevices, checkStatus]);
-
-  const rotateSelected = () => {
-    if (selectedPages.size === 0) return;
-    const newRotations = { ...pageRotations };
-    selectedPages.forEach(index => {
-      newRotations[index] = (newRotations[index] || 0) + 90;
-    });
-    setPageRotations(newRotations);
-  };
-
-  const handleInstallAgent = async () => {
-    setIsInstalling(true);
-    setSetupStep(1);
-    await new Promise(r => setTimeout(r, 1200));
-    setSetupStep(2);
-    await new Promise(r => setTimeout(r, 1800));
-    setSetupStep(3);
-    
-    // Final check
-    try {
-      const res = await fetch('/api/status');
-      const data = await res.json();
-      if (data.status === 'online') {
-        setIsInstalling(false);
-        setAgentInstalled(true);
-        setSetupOpen(false);
-        showAlert('Agent Connected', 'Scanner bridge is now active.', 'success');
-        loadDevices();
-      } else {
-        throw new Error('Not connected');
-      }
-    } catch {
-      setIsInstalling(false);
-      showAlert('Connection Failed', 'Could not detect the local agent. Please make sure it is running.');
-    }
-  };
-
-  const startScan = async () => {
-    if (!selectedScanner) return;
-    setScanning(true);
-    try {
-      const res = await fetch('/api/scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          deviceName: selectedScanner.name,
-          driver: selectedScanner.driver,
-          dpi, colorMode, paperSource, pageSize,
-          format: 'jpg'
-        })
-      });
-      if (!res.ok) throw new Error((await res.json()).error || 'Scan failed');
-      const data = await res.json();
-      setPages(prev => [...prev, ...(data.pages || [])]);
-    } catch (err: unknown) {
-      if (err instanceof Error && err.message.includes('signal: killed')) return;
-      showAlert('Scanning Failed', err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setScanning(false);
-    }
-  };
-
-  const cancelScan = async () => {
-    try {
-      await fetch('/api/scan/cancel', { method: 'POST' });
-    } catch (err) {
-      console.error('Cancel failed', err);
-    }
-  };
-
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const formData = new FormData();
-    formData.append('file', file);
-    try {
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (data.success) setPages(prev => [...prev, data.filename]);
-    } catch {
-      showAlert('Upload Failed', 'There was an error uploading your file.');
-    }
-  };
-
-  const handleSave = async (isEmail = false, onlySelected = false) => {
-    const pagesToSave = pages
-      .map((name, i) => ({ name, rotation: pageRotations[i] || 0, originalIndex: i }))
-      .filter((p) => !onlySelected || selectedPages.has(p.originalIndex));
-    
-    if (pagesToSave.length === 0) return;
-    
-    setProcessing(true);
-    setSaveMenuOpen(false);
-    try {
-      const res = await fetch('/api/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pages: pagesToSave.map(p => ({ name: p.name, rotation: p.rotation })),
-          format: fileFormat,
-          ocr: ocrEnabled,
-          deskew: deskewEnabled,
-          email: isEmail ? emailData : null,
-          pdfMetadata: fileFormat === 'pdf' ? pdfSettings : null,
-          imageQuality: fileFormat === 'jpg' ? imageQuality : 100
-        })
-      });
-
-      if (!res.ok) throw new Error((await res.json()).error || 'Save failed');
-
-      if (!isEmail) {
-        const contentDisposition = res.headers.get('Content-Disposition');
-        let filename = `scan_${Date.now()}.${fileFormat}`;
-        if (contentDisposition) {
-          const match = contentDisposition.match(/filename="(.+)"/);
-          if (match) filename = match[1];
-        }
-
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-      } else {
-        showAlert('Email Sent', 'Your document has been sent successfully.', 'success');
-        setEmailModal(false);
-      }
-    } catch (err: unknown) {
-      showAlert('Export Failed', err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const togglePageSelection = (index: number) => {
-    const newSelection = new Set(selectedPages);
-    if (newSelection.has(index)) newSelection.delete(index);
-    else newSelection.add(index);
-    setSelectedPages(newSelection);
-  };
-
-  const movePage = (index: number, direction: 'left' | 'right') => {
-    const newPages = [...pages];
-    const targetIndex = direction === 'left' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= pages.length) return;
-    
-    // Swap pages
-    [newPages[index], newPages[targetIndex]] = [newPages[targetIndex], newPages[index]];
-    setPages(newPages);
-    
-    // Swap selections
-    const newSelection = new Set<number>();
-    selectedPages.forEach(i => {
-      if (i === index) newSelection.add(targetIndex);
-      else if (i === targetIndex) newSelection.add(index);
-      else newSelection.add(i);
-    });
-    setSelectedPages(newSelection);
-
-    // Swap rotations
-    const newRotations = { ...pageRotations };
-    const temp = newRotations[index];
-    newRotations[index] = newRotations[targetIndex];
-    newRotations[targetIndex] = temp;
-    setPageRotations(newRotations);
-  };
-
-  const deletePage = (index: number) => {
-    const newPages = pages.filter((_, i) => i !== index);
-    setPages(newPages);
-    const newSelection = new Set<number>();
-    selectedPages.forEach(i => {
-      if (i < index) newSelection.add(i);
-      else if (i > index) newSelection.add(i - 1);
-    });
-    setSelectedPages(newSelection);
-
-    // Sync rotations
-    const newRotations: Record<number, number> = {};
-    Object.entries(pageRotations).forEach(([key, val]) => {
-      const i = parseInt(key);
-      if (i < index) newRotations[i] = val;
-      else if (i > index) newRotations[i - 1] = val;
-    });
-    setPageRotations(newRotations);
-  };
-
-  const clearScan = () => {
-    showConfirm('Clear Workspace', 'Are you sure you want to remove all scanned pages? This action cannot be undone.', () => {
-      setPages([]);
-      setSelectedPages(new Set());
-      setConfirmData(null);
-    });
-  };
-
+  if (!isMounted) return null;
 
 
   return (
@@ -493,7 +141,7 @@ export default function ScannerBridge() {
                 </button>
               </div>
 
-              {refreshProgress > 0 && (
+              {refreshing && refreshProgress > 0 && (
                 <div className={styles.progressBarMini}>
                   <div 
                     className={styles.progressBarMiniInner} 
@@ -519,7 +167,7 @@ export default function ScannerBridge() {
                 </button>
               </div>
 
-              <div className={styles.deviceListInner}>
+              <div className={styles.deviceListInner} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {loading && refreshProgress === 0 ? (
                   <div className="shimmer" style={{ height: 60, borderRadius: 8 }}></div>
                 ) : deviceViewMode === 'default' ? (
@@ -543,7 +191,20 @@ export default function ScannerBridge() {
                     <div className={styles.deviceSub}>No scanners detected</div>
                   )
                 ) : (
-                  <div className={styles.deviceSub}>Select from list above</div>
+                  scanners.length > 0 ? (
+                    <CustomSelect 
+                      label="Select Scanner" 
+                      value={selectedScanner ? `${selectedScanner.name}|${selectedScanner.driver}` : ''} 
+                      options={scanners.map(s => ({ value: `${s.name}|${s.driver}`, label: `${s.name} (${s.driver.toUpperCase()})` }))} 
+                      onChange={(val) => {
+                        const [name, driver] = val.split('|');
+                        const s = scanners.find(dev => dev.name === name && dev.driver === driver);
+                        if (s) setSelectedScanner(s);
+                      }} 
+                    />
+                  ) : (
+                    <div className={styles.deviceSub}>No scanners detected</div>
+                  )
                 )}
               </div>
             </div>
@@ -698,14 +359,29 @@ export default function ScannerBridge() {
           <div className={styles.toolSep}></div>
 
           <div className={styles.zoomControls}>
-            <button className={styles.zoomBtn} onClick={() => setZoomLevel(Math.max(1, zoomLevel - 1))}><ZoomOut size={14} /></button>
-            <div className={styles.zoomLevel}>{zoomLevel}x</div>
-            <button className={styles.zoomBtn} onClick={() => setZoomLevel(Math.min(6, zoomLevel + 1))}><ZoomIn size={14} /></button>
+            <button className={styles.zoomBtn} onClick={zoomOut} title="Zoom Out"><ZoomOut size={14} /></button>
+            <div className={styles.zoomLevel}>{zoomLevel}</div>
+            <button className={styles.zoomBtn} onClick={zoomIn} title="Zoom In"><ZoomIn size={14} /></button>
           </div>
 
           <button className={`${styles.toolBtn} ${styles.toolBtnDanger}`} onClick={clearScan} disabled={pages.length === 0}>
             <Trash2 size={18} />
           </button>
+
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+            <div style={{ width: 140 }}>
+              <CustomSelect 
+                label="" 
+                value={theme} 
+                options={[
+                  { value: 'dark', label: 'Dark Theme' },
+                  { value: 'light', label: 'Light Theme' },
+                  { value: 'midnight', label: 'Midnight Blue' }
+                ]} 
+                onChange={setTheme} 
+              />
+            </div>
+          </div>
         </div>
 
         <div className={styles.previewBox} ref={previewBoxRef}>
@@ -716,20 +392,25 @@ export default function ScannerBridge() {
                   key={i} 
                   className={`${styles.pageCard} ${selectedPages.has(i) ? styles.pageCardSelected : ''}`}
                   onClick={() => togglePageSelection(i)}
+                  style={{ aspectRatio: (pageRotations[i] || 0) % 180 !== 0 ? '1.414 / 1' : '1 / 1.414' }}
                 >
                   <Image 
-                    src={page} 
+                    src={`/api/file/${page}`} 
                     alt={`Page ${i+1}`} 
                     width={400} 
                     height={600} 
                     className={styles.pageImage} 
-                    style={{ transform: `rotate(${pageRotations[i] || 0}deg)` }}
+                    style={{ 
+                      transform: `rotate(${pageRotations[i] || 0}deg)`,
+                      width: (pageRotations[i] || 0) % 180 !== 0 ? '70.71%' : '100%',
+                      height: (pageRotations[i] || 0) % 180 !== 0 ? '141.42%' : '100%',
+                    }}
                   />
                   <div className={styles.pageNumber}>Page {i+1}</div>
                   <div className={styles.pageOverlay}>
-                    <button className={styles.pageActionBtn} onClick={(e) => { e.stopPropagation(); movePage(i, 'left'); }}><ChevronLeft size={18} /></button>
-                    <button className={`${styles.pageActionBtn} ${styles.pageActionBtnDel}`} onClick={(e) => { e.stopPropagation(); deletePage(i); }}><Trash2 size={18} /></button>
-                    <button className={styles.pageActionBtn} onClick={(e) => { e.stopPropagation(); movePage(i, 'right'); }}><ChevronRight size={18} /></button>
+                    <button className={styles.pageActionBtn} onClick={(e) => { e.stopPropagation(); rotatePage(i, 'left'); }} title="Rotate Left"><RotateCcw size={18} /></button>
+                    <button className={`${styles.pageActionBtn} ${styles.pageActionBtnDel}`} onClick={(e) => { e.stopPropagation(); deletePage(i); }} title="Delete Page"><Trash2 size={18} /></button>
+                    <button className={styles.pageActionBtn} onClick={(e) => { e.stopPropagation(); rotatePage(i, 'right'); }} title="Rotate Right"><RotateCw size={18} /></button>
                   </div>
                 </div>
               ))}
@@ -829,7 +510,7 @@ export default function ScannerBridge() {
               {selectedScanner?.name}
             </div>
             <div className={styles.progressBarContainer}>
-              <div className={styles.progressBar}></div>
+              <div className={styles.progressBar} style={{ width: `${scanProgress}%` }}></div>
             </div>
             <div className={styles.progressSub}>Capturing pages from {paperSource}...</div>
           </div>
@@ -948,13 +629,13 @@ export default function ScannerBridge() {
             <div className={styles.confirmTitle}>{confirmData.title}</div>
             <div className={styles.confirmMessage}>{confirmData.message}</div>
             <div className={styles.modalFooter} style={{ justifyContent: 'center' }}>
-              <button className={styles.secondaryBtn} onClick={() => setConfirmData(null)}>Cancel</button>
+              <button className={styles.secondaryBtn} onClick={() => setConfirmData(null)}>{confirmData.cancelText || 'Cancel'}</button>
               <button 
                 className={styles.primaryBtn} 
                 style={{ background: confirmData.type === 'danger' ? '#ef4444' : 'var(--primary)', color: confirmData.type === 'danger' ? 'white' : '#000' }}
                 onClick={confirmData.onConfirm}
               >
-                Confirm Action
+                {confirmData.confirmText || 'Confirm Action'}
               </button>
             </div>
           </div>

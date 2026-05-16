@@ -96,19 +96,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: msg }, { status: 500 });
     }
 
-    // Cleanup logic (delayed - increased to 2 minutes to allow grid viewing)
-    setTimeout(() => {
-      try {
-        const currentFiles = fs.readdirSync(SCAN_DIR);
-        currentFiles.forEach(f => {
-          if (f.startsWith(baseFilename)) {
-            try { fs.unlinkSync(path.join(SCAN_DIR, f)); } catch {}
-          }
-        });
-      } catch (e) {
-        console.error('[cleanup error]', e);
-      }
-    }, 600000);
+    // Files are now kept until manually cleared by the user in the UI
 
     return NextResponse.json({ 
       success: true, 

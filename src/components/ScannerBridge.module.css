@@ -1,18 +1,85 @@
-:root {
+:root, :global([data-theme="dark"]) {
   --background: #09090b;
+  --panel-bg: #0c0c0e;
   --foreground: #fafafa;
   --card: #121214;
   --card-border: #27272a;
   --primary: #ffffff;
   --primary-hover: #e4e4e7;
   --secondary: #27272a;
-  --accent: #3b82f6; /* Modern Blue */
+  --accent: #3b82f6;
   --accent-soft: rgba(59, 130, 246, 0.1);
   --muted: #71717a;
   --border: #1f1f22;
   --radius: 8px;
   --radius-lg: 12px;
   --font-sans: 'Inter', system-ui, sans-serif;
+  --input-bg: transparent;
+  --input-border: var(--border);
+  --error: #ef4444;
+  --error-bg: rgba(239,68,68,0.1);
+  --success: #10b981;
+  --success-bg: rgba(16,185,129,0.1);
+  --shimmer-start: #1f1f22;
+  --shimmer-end: #27272a;
+  --hover-bg: rgba(255, 255, 255, 0.05);
+  --overlay: rgba(0, 0, 0, 0.6);
+}
+
+:global([data-theme="light"]) {
+  --background: #f4f4f5;
+  --panel-bg: #ffffff;
+  --foreground: #18181b;
+  --card: #ededef;
+  --card-border: #d4d4d8;
+  --primary: #18181b;
+  --primary-hover: #27272a;
+  --secondary: #e4e4e7;
+  --accent: #2563eb;
+  --accent-soft: rgba(37, 99, 235, 0.08);
+  --muted: #71717a;
+  --border: #d4d4d8;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --input-bg: #ffffff;
+  --input-border: #d4d4d8;
+  --error: #dc2626;
+  --error-bg: #fef2f2;
+  --success: #059669;
+  --success-bg: #ecfdf5;
+  --shimmer-start: #e4e4e7;
+  --shimmer-end: #d4d4d8;
+  --hover-bg: rgba(0, 0, 0, 0.04);
+  --overlay: rgba(0, 0, 0, 0.3);
+}
+
+:global([data-theme="midnight"]) {
+  --background: #0f172a;
+  --panel-bg: #1e293b;
+  --foreground: #f8fafc;
+  --card: #1e293b;
+  --card-border: #334155;
+  --primary: #f8fafc;
+  --primary-hover: #e2e8f0;
+  --secondary: #334155;
+  --accent: #38bdf8;
+  --accent-soft: rgba(56, 189, 248, 0.1);
+  --muted: #94a3b8;
+  --border: #334155;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --input-bg: transparent;
+  --input-border: #334155;
+  --error: #f87171;
+  --error-bg: rgba(248, 113, 113, 0.1);
+  --success: #34d399;
+  --success-bg: rgba(52, 211, 153, 0.1);
+  --shimmer-start: #334155;
+  --shimmer-end: #475569;
+  --hover-bg: rgba(255, 255, 255, 0.05);
+  --overlay: rgba(0, 0, 0, 0.6);
 }
 
 .container {
@@ -27,7 +94,7 @@
 /* ── SIDEBAR ── */
 .panel {
   width: 320px;
-  background: #0c0c0e;
+  background: var(--panel-bg);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -65,7 +132,7 @@
 }
 
 .deviceCard {
-  background: #121214;
+  background: var(--card);
   border: 1px solid var(--card-border);
   padding: 16px;
   border-radius: var(--radius-lg);
@@ -79,8 +146,8 @@
 }
 
 .deviceCard:hover {
-  background: #18181b;
-  border-color: #3f3f46;
+  background: var(--card);
+  border-color: var(--border);
   transform: translateX(4px);
 }
 
@@ -152,7 +219,7 @@
 
 .selectTrigger {
   width: 100%;
-  background: #18181b;
+  background: var(--card);
   border: 1px solid var(--card-border);
   color: var(--foreground);
   padding: 10px 14px;
@@ -167,7 +234,7 @@
 }
 
 .selectTrigger:hover {
-  border-color: #3f3f46;
+  border-color: var(--border);
 }
 
 .selectContent {
@@ -175,7 +242,7 @@
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: #121214;
+  background: var(--card);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
   z-index: 100;
@@ -214,7 +281,7 @@
 .scanBtn {
   margin-top: auto;
   background: var(--primary);
-  color: #000;
+  color: var(--background);
   border: none;
   padding: 14px;
   border-radius: var(--radius);
@@ -243,13 +310,13 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #09090b;
+  background: var(--background);
 }
 
 .toolbar {
   height: 64px;
   border-bottom: 1px solid var(--border);
-  background: rgba(12, 12, 14, 0.8);
+  background: var(--panel-bg); opacity: 0.95;
   backdrop-filter: blur(8px);
   padding: 0 24px;
   display: flex;
@@ -278,7 +345,7 @@
 .saveGroup {
   display: flex;
   align-items: stretch;
-  background: #18181b;
+  background: var(--card);
   border: 1px solid var(--card-border);
   border-radius: 6px;
   overflow: hidden;
@@ -286,7 +353,7 @@
 }
 
 .saveGroup:hover {
-  border-color: #3f3f46;
+  border-color: var(--border);
 }
 
 .saveMain {
@@ -303,7 +370,7 @@
 }
 
 .saveMain:hover {
-  background: rgba(255,255,255,0.05);
+  background: var(--hover-bg);
 }
 
 .saveCaret {
@@ -318,7 +385,7 @@
 }
 
 .saveCaret:hover {
-  background: rgba(255,255,255,0.05);
+  background: var(--hover-bg);
   color: var(--foreground);
 }
 
@@ -330,7 +397,7 @@
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
-  background: #121214;
+  background: var(--card);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
   z-index: 100;
@@ -372,7 +439,7 @@
 }
 
 .toolBtn:hover {
-  background: #18181b;
+  background: var(--card);
   border-color: var(--card-border);
 }
 
@@ -393,7 +460,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #18181b;
+  background: var(--card);
   padding: 4px 8px;
   border-radius: 20px;
   border: 1px solid var(--card-border);
@@ -422,7 +489,7 @@
 
 .formatToggle {
   display: flex;
-  background: #18181b;
+  background: var(--card);
   border: 1px solid var(--card-border);
   border-radius: 20px;
   padding: 2px;
@@ -446,7 +513,7 @@
 
 .formatBtnActive {
   background: var(--primary);
-  color: #000;
+  color: var(--background);
   box-shadow: 0 2px 10px rgba(255, 255, 255, 0.1);
 }
 
@@ -463,10 +530,11 @@
   gap: 24px;
   max-width: 1400px;
   margin: 0 auto;
+  align-items: start;
 }
 
 .pageCard {
-  background: #111113;
+  background: var(--card);
   border: 1px solid var(--card-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -474,10 +542,13 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .pageCard:hover {
-  border-color: #3f3f46;
+  border-color: var(--border);
   transform: translateY(-4px);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
 }
@@ -505,11 +576,13 @@
   z-index: 5;
 }
 
-.pageImg {
+.pageImage {
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: contain;
   display: block;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: white;
 }
 
 .pageOverlay {
@@ -532,9 +605,9 @@
 .pageActionBtn {
   width: 36px;
   height: 36px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--hover-bg);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -546,21 +619,21 @@
 
 .pageActionBtn:hover {
   background: var(--primary);
-  color: #000;
+  color: var(--background);
   transform: scale(1.1);
 }
 
 .pageActionBtnDel:hover {
-  background: #ef4444;
+  background: var(--error);
   color: white;
-  border-color: #ef4444;
+  border-color: var(--error);
 }
 
 .pageNumber {
   position: absolute;
   top: 12px;
   left: 12px;
-  background: rgba(0,0,0,0.6);
+  background: var(--overlay);
   backdrop-filter: blur(4px);
   padding: 4px 10px;
   border-radius: 6px;
@@ -574,7 +647,7 @@
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: var(--overlay);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -584,7 +657,7 @@
 }
 
 .modalContent {
-  background: #0c0c0e;
+  background: var(--panel-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   width: 100%;
@@ -621,7 +694,7 @@
 .inputGroup input, 
 .inputGroup textarea {
   width: 100%;
-  background: #18181b;
+  background: var(--card);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
   padding: 10px 14px;
@@ -649,7 +722,7 @@
 
 .primaryBtn {
   background: var(--primary);
-  color: #000;
+  color: var(--background);
   border: none;
   padding: 10px 20px;
   border-radius: var(--radius);
@@ -670,7 +743,7 @@
 }
 
 .emptyIcon {
-  color: #27272a;
+  color: var(--secondary);
   margin-bottom: 8px;
 }
 
@@ -702,8 +775,8 @@
   border-radius: 50%;
 }
 
-.sdotGreen { background: #10b981; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
-.sdotRed { background: #ef4444; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+.sdotGreen { background: var(--success); box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
+.sdotRed { background: var(--error); box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
 
 /* ── SCAN ANIMATION ── */
 .scanningOverlay {
@@ -777,7 +850,7 @@
   bottom: 24px;
   right: 24px;
   width: 320px;
-  background: #111113;
+  background: var(--card);
   border: 1px solid var(--card-border);
   border-radius: var(--radius-lg);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
@@ -818,7 +891,7 @@
 
 .progressBarContainer {
   height: 6px;
-  background: #27272a;
+  background: var(--secondary);
   border-radius: 3px;
   overflow: hidden;
   position: relative;
@@ -838,9 +911,9 @@
 }
 
 .cancelBtn {
-  background: #ef44441a;
-  color: #ef4444;
-  border: 1px solid #ef444433;
+  background: var(--error)1a;
+  color: var(--error);
+  border: 1px solid var(--error)33;
   padding: 8px;
   border-radius: 6px;
   font-size: 12px;
@@ -854,7 +927,7 @@
 }
 
 .cancelBtn:hover {
-  background: #ef444433;
+  background: var(--error)33;
 }
 
 /* ── CONFIRMATION MODAL ── */
@@ -866,8 +939,8 @@
 .confirmIcon {
   width: 56px;
   height: 56px;
-  background: #ef44441a;
-  color: #ef4444;
+  background: var(--error)1a;
+  color: var(--error);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -939,7 +1012,7 @@
 
 .viewToggle {
   display: flex;
-  background: #18181b;
+  background: var(--card);
   border: 1px solid var(--card-border);
   border-radius: 6px;
   padding: 2px;
@@ -977,7 +1050,7 @@
 .footer {
   padding: 12px 32px;
   border-top: 1px solid var(--border);
-  background: rgba(12, 12, 14, 0.5);
+  background: var(--overlay);
   display: flex;
   justify-content: center;
   font-size: 10px;
@@ -994,7 +1067,7 @@
   right: 0;
   bottom: 0;
   width: 400px;
-  background: #0c0c0e;
+  background: var(--panel-bg);
   border-left: 1px solid var(--border);
   z-index: 1100;
   display: flex;
@@ -1011,7 +1084,7 @@
 .modalOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--overlay);
   backdrop-filter: blur(4px);
   z-index: 1050;
 }
@@ -1066,7 +1139,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #18181b;
+  background: var(--card);
   border: 1px solid var(--card-border);
   display: flex;
   align-items: center;
@@ -1128,7 +1201,7 @@
 }
 
 .setupCard {
-  background: #121214;
+  background: var(--card);
   border: 1px dashed var(--card-border);
   border-radius: var(--radius-lg);
   padding: 32px 24px;
@@ -1175,7 +1248,7 @@
 .resetBtn {
   background: transparent;
   border: 1px solid #3d1515;
-  color: #ef4444;
+  color: var(--error);
   padding: 8px 16px;
   border-radius: 6px;
   font-size: 11px;
@@ -1187,3 +1260,5 @@
 .resetBtn:hover {
   background: #3d1515;
 }
+
+

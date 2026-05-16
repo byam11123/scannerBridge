@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     }
 
     if (processedPages.length === 0) {
-      return NextResponse.json({ error: 'No valid input files found. They may have been cleaned up (10 min limit).' }, { status: 400 });
+      return NextResponse.json({ error: 'No valid input files found. They may have been cleared from the workspace.' }, { status: 400 });
     }
 
     // Give the OS a moment to release file handles
