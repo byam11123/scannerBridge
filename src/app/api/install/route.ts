@@ -11,6 +11,15 @@ const execAsync = promisify(exec);
 const MSI_URL = 'https://github.com/cyanfish/naps2/releases/download/v8.2.1/naps2-8.2.1-win-x64.msi';
 
 export async function POST() {
+  const isVercel = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
+  
+  if (isVercel) {
+    return NextResponse.json(
+      { success: false, error: 'Automatic installation is not available in cloud mode. Please run this application locally on your Windows computer to set up the scanner.' },
+      { status: 200 }
+    );
+  }
+
   try {
     // 1. Check if already installed
     if (isNAPS2Installed()) {

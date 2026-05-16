@@ -92,7 +92,8 @@ export default function ScannerBridge() {
     saveMenuRef, previewBoxRef, agentInstalled, setAgentInstalled,
     setupOpen, setSetupOpen, setupStep, isInstalling, isMounted, loadDevices, rotateSelected,
     handleInstallAgent, startScan, cancelScan, handleImport, handleSave, togglePageSelection, deletePage, clearScan, rotatePage,
-    theme, setTheme, zoomIn, zoomOut
+    theme, setTheme, zoomIn, zoomOut,
+    isVercel
   } = useScannerLogic();
 
   if (!isMounted) return null;
@@ -470,6 +471,16 @@ export default function ScannerBridge() {
                 <strong>Why is this needed?</strong>
                 <p>Browsers are sandboxed for safety. This agent bridges your computer&apos;s drivers (WIA/TWAIN) to the web interface securely.</p>
               </div>
+
+              {isVercel && (
+                <div className={`${styles.setupInfo} ${styles.alertInfo}`} style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+                  <div style={{ display: 'flex', gap: '8px', color: '#ef4444', marginBottom: '8px', alignItems: 'center' }}>
+                    <AlertCircle size={16} />
+                    <strong style={{ margin: 0 }}>Cloud Mode Detected</strong>
+                  </div>
+                  <p style={{ color: '#ef4444' }}>Scanner hardware is not accessible from the cloud. Please run this app locally at <strong>http://localhost:3000</strong> to use your scanner.</p>
+                </div>
+              )}
 
               {agentInstalled && (
                 <button className={styles.resetBtn} onClick={() => { setAgentInstalled(false); localStorage.removeItem('scanner-bridge-installed'); }}>

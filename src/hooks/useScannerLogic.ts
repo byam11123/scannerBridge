@@ -64,11 +64,11 @@ export function useScannerLogic() {
   }, []);
 
   // Local Agent Setup State
-  const [agentInstalled, setAgentInstalled] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [isVercel, setIsVercel] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [setupStep, setSetupStep] = useState(1);
   const [isInstalling, setIsInstalling] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
   const [theme, setTheme] = useState('dark');
 
   // --- Helper Functions ---
@@ -587,32 +587,34 @@ export function useScannerLogic() {
     clearScan,
     rotatePage,
     theme,
-    setTheme
+    setTheme,
+    isVercel
   };
 
   // --- Effects (Moved to bottom to avoid hoisting issues) ---
   
-  // Handle hydration
+  // Handle hydration and environment detection
   useEffect(() => {
-    setTimeout(() => setIsMounted(true), 0);
+    setIsMounted(true);
+    setIsVercel(window.location.hostname.includes('vercel.app'));
   }, []);
 
   // Initialize from persistence on mount
   useEffect(() => {
     if (!isMounted) return;
+    loadExistingFiles();
     const saved = localStorage.getItem('scanner-bridge-installed');
     const savedTheme = localStorage.getItem('scanner-bridge-theme');
-    setTimeout(() => {
-      if (saved === 'true') {
-        setAgentInstalled(true);
-      } else {
-        setSetupOpen(true);
-      }
-      if (savedTheme) {
-        setTheme(savedTheme);
-      }
-    }, 0);
-  }, [isMounted]);
+    
+    if (saved === 'true') {
+      setAgentInstalled(true);
+    } else {
+      setSetupOpen(true);
+    }
+    if (savedTheme) {
+      setTheme(savedTheme);
+    }
+  }, [isMounted, loadExistingFiles]);
 
   // Persist installation state and theme
   useEffect(() => {
