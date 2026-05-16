@@ -596,25 +596,33 @@ export function useScannerLogic() {
   
   // Handle hydration and environment detection
   useEffect(() => {
-    setIsMounted(true);
-    setIsVercel(window.location.hostname.includes('vercel.app'));
+    const isVercelHost = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+    setTimeout(() => {
+      setIsMounted(true);
+      setIsVercel(isVercelHost);
+    }, 0);
   }, []);
 
   // Initialize from persistence on mount
   useEffect(() => {
     if (!isMounted) return;
-    loadExistingFiles();
-    const saved = localStorage.getItem('scanner-bridge-installed');
-    const savedTheme = localStorage.getItem('scanner-bridge-theme');
     
-    if (saved === 'true') {
-      setAgentInstalled(true);
-    } else {
-      setSetupOpen(true);
-    }
-    if (savedTheme) {
-      setTheme(savedTheme);
-    }
+    const initialize = () => {
+      loadExistingFiles();
+      const saved = localStorage.getItem('scanner-bridge-installed');
+      const savedTheme = localStorage.getItem('scanner-bridge-theme');
+      
+      if (saved === 'true') {
+        setAgentInstalled(true);
+      } else {
+        setSetupOpen(true);
+      }
+      if (savedTheme) {
+        setTheme(savedTheme);
+      }
+    };
+
+    setTimeout(initialize, 0);
   }, [isMounted, loadExistingFiles]);
 
   // Persist installation state and theme
