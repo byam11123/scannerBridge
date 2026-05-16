@@ -288,8 +288,11 @@ export function useScannerLogic() {
         setSetupOpen(false);
         showAlert('Agent Connected', 'Scanner bridge is now active.', 'success');
         loadDevices();
+      } else if (data.status === 'cloud') {
+        setIsInstalling(false);
+        showAlert('Local Run Required', 'This application is running in the cloud (Vercel). To scan documents, you must run it locally on your computer.', 'error');
       } else {
-        throw new Error('Not connected');
+        throw new Error(data.message || 'Not connected');
       }
     } catch (err: unknown) {
       console.error('Connection check failed:', err);
