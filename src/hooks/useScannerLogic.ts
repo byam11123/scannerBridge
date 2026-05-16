@@ -72,6 +72,14 @@ export function useScannerLogic() {
   const [isInstalling, setIsInstalling] = useState(false);
   const [theme, setTheme] = useState('dark');
 
+  // Helper to determine API URL
+  const getApiUrl = useCallback((path: string) => {
+    if (isVercel) {
+      return `http://localhost:3000${path}`;
+    }
+    return path;
+  }, [isVercel]);
+
   // --- Helper Functions ---
   const loadDevices = useCallback(async () => {
     setRefreshing(true);
@@ -89,7 +97,7 @@ export function useScannerLogic() {
     }, 50);
 
     try {
-      const res = await fetch('/api/scanners');
+      const res = await fetch(getApiUrl('/api/scanners'));
       const data = await res.json();
       const rawScanners = data.scanners || [];
       const driverPriority: Record<string, number> = { 'escl': 3, 'wia': 2, 'twain': 1 };
@@ -129,7 +137,7 @@ export function useScannerLogic() {
 
   const checkStatus = useCallback(async () => {
     try {
-      const res = await fetch('/api/status');
+      const res = await fetch(getApiUrl('/api/status'));
       const data = await res.json();
       if (data.status === 'online') setStatus({ type: 'green', text: 'Bridge Online' });
       else setStatus({ type: 'red', text: 'NAPS2 Missing' });
@@ -276,19 +284,7 @@ export function useScannerLogic() {
     setSetupStep(1);
     
     try {
-      const res = await fetch('/api/install', { method: 'POST' });
-      const data = await res.json();
-      
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Installation failed');
-      }
-
-      setSetupStep(2);
-      await new Promise(r => setTimeout(r, 1000));
-      setSetupStep(3);
-      
-      // Final check
-      const statusRes = await fetch('/api/status');
+      const statusRes = await fetch(getApiUrl('/api/status'));
       const statusData = await statusRes.json();
       
       if (statusData.status === 'online') {
@@ -328,7 +324,7 @@ export function useScannerLogic() {
     }, 150);
 
     try {
-      const res = await fetch('/api/scan', {
+      const res = await fetch(getApiUrl('/api/scan'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -358,7 +354,7 @@ export function useScannerLogic() {
 
   const cancelScan = useCallback(async () => {
     try {
-      await fetch('/api/scan/cancel', { method: 'POST' });
+      await fetch(getApiUrl('/api/scan/cancel'), { method: 'POST' });
     } catch (err) {
       console.error('Cancel failed', err);
     }
@@ -370,7 +366,7 @@ export function useScannerLogic() {
     const formData = new FormData();
     formData.append('file', file);
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const res = await fetch(getApiUrl('/api/upload'), { method: 'POST', body: formData });
       const data = await res.json();
       if (data.success) setPages(prev => [...prev, data.filename]);
     } catch {
@@ -388,7 +384,7 @@ export function useScannerLogic() {
     setProcessing(true);
     setSaveMenuOpen(false);
     try {
-      const res = await fetch('/api/save', {
+      const res = await fetch(getApiUrl('/api/save'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -472,7 +468,7 @@ export function useScannerLogic() {
   const deletePage = useCallback((index: number) => {
     const filename = pages[index];
     if (filename) {
-      fetch('/api/clear', {
+      fetch(getApiUrl('/api/clear'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filenames: [filename] })
@@ -505,7 +501,7 @@ export function useScannerLogic() {
   const clearScan = useCallback(() => {
     showConfirm('Clear Workspace', 'Are you sure you want to remove all scanned pages? This action will permanently delete the temporary files.', () => {
       if (pages.length > 0) {
-        fetch('/api/clear', {
+        fetch(getApiUrl('/api/clear'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ filenames: pages })
@@ -595,7 +591,8 @@ export function useScannerLogic() {
     rotatePage,
     theme,
     setTheme,
-    isVercel
+    isVercel,
+    getApiUrl
   };
 
   // --- Effects (Moved to bottom to avoid hoisting issues) ---

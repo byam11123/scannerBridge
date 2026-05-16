@@ -93,7 +93,7 @@ export default function ScannerBridge() {
     setupOpen, setSetupOpen, setupStep, isInstalling, isMounted, loadDevices, rotateSelected,
     handleInstallAgent, startScan, cancelScan, handleImport, handleSave, togglePageSelection, deletePage, clearScan, rotatePage,
     theme, setTheme, zoomIn, zoomOut,
-    isVercel
+    isVercel, getApiUrl
   } = useScannerLogic();
 
   if (!isMounted) return null;
@@ -394,7 +394,7 @@ export default function ScannerBridge() {
                   style={{ aspectRatio: (pageRotations[i] || 0) % 180 !== 0 ? '1.414 / 1' : '1 / 1.414' }}
                 >
                   <Image 
-                    src={`/api/file/${page}`} 
+                    src={getApiUrl(`/api/file/${page}`)} 
                     alt={`Page ${i+1}`} 
                     width={400} 
                     height={600} 

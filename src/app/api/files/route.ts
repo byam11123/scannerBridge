@@ -1,18 +1,22 @@
-import { NextResponse } from 'next/server';
+import { corsResponse, handleOptions } from '@/lib/cors';
 import fs from 'fs';
 import path from 'path';
 
 const SCAN_DIR = 'C:\\scans';
 
+export const dynamic = 'force-dynamic';
+
+export async function OPTIONS() {
+  return handleOptions();
+}
+
 export async function GET() {
   try {
     if (!fs.existsSync(SCAN_DIR)) {
-      return NextResponse.json({ files: [] });
+      return corsResponse({ files: [] });
     }
 
     const files = fs.readdirSync(SCAN_DIR);
-    
-    // Only return image files that look like scans or uploads
     const scanFiles = files
       .filter(f => {
         const ext = path.extname(f).toLowerCase();
@@ -25,9 +29,9 @@ export async function GET() {
       .sort((a, b) => a.time - b.time)
       .map(f => f.name);
 
-    return NextResponse.json({ files: scanFiles });
-  } catch (err) {
+    return corsResponse({ files: scanFiles });
+  } catch (err: any) {
     console.error('Failed to list files:', err);
-    return NextResponse.json({ error: 'Failed to list files' }, { status: 500 });
+    return corsResponse({ error: 'Failed to list files' }, 500);
   }
 }
