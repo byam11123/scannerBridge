@@ -304,7 +304,13 @@ export function useScannerLogic() {
       console.error('Installation failed:', err);
       const msg = err instanceof Error ? err.message : 'Unknown error';
       setIsInstalling(false);
-      showAlert('Setup Failed', `We couldn't install the agent automatically. ${msg}. You may need to download NAPS2 manually from naps2.com.`);
+      
+      const isCloudMsg = msg.includes('cloud mode');
+      showAlert(
+        isCloudMsg ? 'Local Run Required' : 'Setup Failed', 
+        isCloudMsg ? msg : `We couldn't install the agent automatically. ${msg}. You may need to download NAPS2 manually from naps2.com.`,
+        'error'
+      );
     }
   }, [showAlert, loadDevices]);
 

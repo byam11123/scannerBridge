@@ -494,10 +494,11 @@ export default function ScannerBridge() {
                 <button 
                   className={styles.primaryBtn} 
                   onClick={handleInstallAgent}
-                  disabled={isInstalling}
+                  disabled={isInstalling || isVercel}
+                  style={isVercel ? { opacity: 0.5, cursor: 'not-allowed', filter: 'grayscale(1)' } : {}}
                 >
                   <Zap size={16} />
-                  {isInstalling ? 'Installing Agent...' : 'Authorize & Install Agent'}
+                  {isInstalling ? 'Installing Agent...' : isVercel ? 'Installation Disabled (Cloud)' : 'Authorize & Install Agent'}
                 </button>
               </div>
             )}
