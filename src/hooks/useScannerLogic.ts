@@ -291,9 +291,11 @@ export function useScannerLogic() {
       } else {
         throw new Error('Not connected');
       }
-    } catch {
+    } catch (err: unknown) {
+      console.error('Connection check failed:', err);
+      const msg = err instanceof Error ? err.message : 'Unknown error';
       setIsInstalling(false);
-      showAlert('Connection Failed', 'Could not detect the local agent. Please make sure it is running.');
+      showAlert('Connection Failed', `Could not detect the local agent (${msg}). Please make sure it is running.`);
     }
   }, [showAlert, loadDevices]);
 

@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-
-const NAPS2_PATH = 'C:\\Program Files\\NAPS2\\NAPS2.Console.exe';
+import { isNAPS2Installed } from '@/lib/naps2';
 
 export async function GET() {
-  if (fs.existsSync(NAPS2_PATH)) {
+  if (isNAPS2Installed()) {
     return NextResponse.json({ status: 'online', engine: 'NAPS2' });
   } else {
     return NextResponse.json(
